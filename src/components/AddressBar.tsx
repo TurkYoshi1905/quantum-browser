@@ -43,7 +43,11 @@ export default function AddressBar(props: Props) {
   const { url, inputRef } = props;
   const [value, setValue] = useState(url);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [spinning, setSpinning] = useState(false);
+  const [starPop, setStarPop] = useState(false);
+  const [chipPulse, setChipPulse] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const prevBlocked = useRef(props.blockedCount);
 
   // Sekme URL'i değiştiğinde kutuyu güncelle
   useEffect(() => {
@@ -59,6 +63,17 @@ export default function AddressBar(props: Props) {
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
   }, [menuOpen]);
+
+  // Engelleme sayacı arttığında kalkan rozetine pulse animasyonu
+  useEffect(() => {
+    if (props.blockedCount > prevBlocked.current) {
+      setChipPulse(true);
+      const t = window.setTimeout(() => setChipPulse(false), 380);
+      prevBlocked.current = props.blockedCount;
+      return () => window.clearTimeout(t);
+    }
+    prevBlocked.current = props.blockedCount;
+  }, [props.blockedCount]);
 
   const secure = url.startsWith("https://");
   const insecure = url.startsWith("http://");
@@ -76,7 +91,16 @@ export default function AddressBar(props: Props) {
       <button className="nav-btn" title="İleri (Alt+Sağ)" aria-label="İleri" onClick={props.onForward}>
         <ArrowRight size={16} strokeWidth={2} />
       </button>
-      <button className="nav-btn" title="Yenile (F5)" aria-label="Yenile" onClick={props.onReload}>
+      <button
+        className={`nav-btn${spinning ? " spinning" : ""}`}
+        title="Yenile (F5)"
+        aria-label="Yenile"
+        onClick={() => {
+          props.onReload();
+          setSpinning(true);
+          window.setTimeout(() => setSpinning(false), 650);
+        }}
+      >
         <RotateCw size={15} strokeWidth={2} />
       </button>
 
@@ -123,8 +147,12 @@ export default function AddressBar(props: Props) {
         />
 
         <button
-          className={`star-btn${props.bookmarked ? " active" : ""}`}
-          onClick={props.onToggleBookmark}
+          className={`star-btn${props.bookmarked ? " active" : ""}${starPop ? " star-pop" : ""}`}
+          onClick={() => {
+            props.onToggleBookmark();
+            setStarPop(true);
+            window.setTimeout(() => setStarPop(false), 450);
+          }}
           title={props.bookmarked ? "Yer imini kaldır" : "Yer imlerine ekle"}
           aria-label={props.bookmarked ? "Yer imini kaldır" : "Yer imlerine ekle"}
           aria-pressed={props.bookmarked}
@@ -135,7 +163,7 @@ export default function AddressBar(props: Props) {
         <span className="omni-sep" aria-hidden="true" />
 
         <button
-          className={`chip-block${props.blockerEnabled ? "" : " off"}`}
+          className={`chip-block${props.blockerEnabled ? "" : " off"}${chipPulse ? " chip-pulse" : ""}`}
           onClick={props.onToggleBlocker}
           title={props.blockerEnabled ? "Reklam engelleyici açık — kapatmak için tıklayın" : "Reklam engelleyici kapalı — açmak için tıklayın"}
           aria-label="Reklam engelleyiciyi aç/kapat"
@@ -153,7 +181,7 @@ export default function AddressBar(props: Props) {
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((v) => !v)}
         >
-          <MoreVertical size={17} strokeWidth={2} />
+          <MoreVertical size={17} strokeWidth={2} style={{ color: "var(--text)" }} />
         </button>
 
         {menuOpen && (

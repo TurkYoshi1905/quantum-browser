@@ -57,6 +57,8 @@ export const removeBookmark = (url: string) => invoke<void>("remove_bookmark", {
 export const listHistory = (query?: string, limit = 200) =>
   invoke<HistoryEntry[]>("list_history", { query: query ?? null, limit });
 export const clearHistory = () => invoke<void>("clear_history");
+export const deleteHistoryEntries = (ids: number[]) =>
+  invoke<number>("delete_history_entries", { ids });
 
 // ---------- İndirmeler ----------
 export const listDownloads = () => invoke<DownloadEntry[]>("list_downloads");
@@ -69,6 +71,11 @@ export const addProfile = (name: string, color: string) =>
   invoke<number>("add_profile", { name, color });
 export const switchProfile = (profileId: number) =>
   invoke<void>("switch_profile", { profileId });
+export const renameProfile = (profileId: number, name: string) =>
+  invoke<void>("rename_profile", { profileId, name });
+export const deleteProfile = (profileId: number) =>
+  invoke<void>("delete_profile", { profileId });
+export const toggleDevtools = () => invoke<void>("toggle_devtools");
 
 // ---------- Gizlilik ----------
 export const clearBrowsingData = () => invoke<void>("clear_browsing_data");

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   AlertTriangle,
   Bookmark,
@@ -12,6 +12,7 @@ import {
   Info,
   Moon,
   Monitor,
+  Pencil,
   Plus,
   Search,
   Settings2,
@@ -29,15 +30,20 @@ import {
   clearBrowsingData,
   clearFinishedDownloads,
   clearHistory,
+  deleteHistoryEntries,
   domainOf,
   formatBytes,
   historyGroup,
   listBookmarks,
   listDownloads,
   listHistory,
+  listProfiles,
+  navigate,
   onDownloadsChanged,
   openDownloadsFolder,
   removeBookmark,
+  renameProfile,
+  deleteProfile,
   timeOf,
 } from "../api";
 import type { Bookmark as BookmarkType, DownloadEntry, HistoryEntry } from "../types";
@@ -116,17 +122,60 @@ function ArmedButton({
 export function HistoryPanel({ onClose, onNavigate }: { onClose: () => void; onNavigate: (url: string) => void }) {
   const [query, setQuery] = useState("");
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loaded, setLoaded] = useState(false);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback((q?: string) => {
+    listHistory(q?.trim() || undefined, 300).then((rows) => {
+      setEntries(rows);
+      setLoaded(true);
+    });
+  }, []);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
-      listHistory(query.trim() || undefined, 300).then((rows) => {
-        setEntries(rows);
-        setLoaded(true);
-      });
+      load(query);
+      setSelected(new Set());
     }, 150);
     return () => window.clearTimeout(t);
-  }, [query]);
+  }, [query, load]);
+
+  const allVisibleIds = entries.map((e) => e.id);
+  const allChecked =
+    entries.length > 0 && allVisibleIds.every((id) => selected.has(id));
+  const someChecked = selected.size > 0 && !allChecked;
+
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = someChecked;
+  }, [someChecked]);
+
+  const toggleAll = (checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) allVisibleIds.forEach((id) => next.add(id));
+      else allVisibleIds.forEach((id) => next.delete(id));
+      return next;
+    });
+  };
+
+  const toggleOne = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const deleteSelected = () => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    deleteHistoryEntries(ids).then(() => {
+      setSelected(new Set());
+      load(query);
+    });
+  };
 
   const grouped = new Map<string, HistoryEntry[]>();
   for (const e of entries) {
@@ -143,11 +192,9 @@ export function HistoryPanel({ onClose, onNavigate }: { onClose: () => void; onN
       onClose={onClose}
       actions={
         <ArmedButton
-          label="Geçmişi Temizle"
+          label={`Seçilenleri Sil (${selected.size})`}
           confirmLabel="Kesinlikle Sil"
-          onConfirm={() => {
-            clearHistory().then(() => setEntries([]));
-          }}
+          onConfirm={deleteSelected}
         />
       }
     >
@@ -161,6 +208,22 @@ export function HistoryPanel({ onClose, onNavigate }: { onClose: () => void; onN
           aria-label="Geçmişte ara"
         />
       </div>
+
+      {loaded && entries.length > 0 && (
+        <label className="select-all-row" aria-label="Tümünü seç">
+          <input
+            ref={selectAllRef}
+            type="checkbox"
+            className="row-check"
+            checked={allChecked}
+            onChange={(e) => toggleAll(e.target.checked)}
+            aria-label="Tümünü seç"
+          />
+          <span>{allChecked ? "Seçimi kaldır" : "Tümünü seç"} ({entries.length})</span>
+          {selected.size > 0 && <span className="selected-count">{selected.size} seçili</span>}
+        </label>
+      )}
+
       {loaded && entries.length === 0 && (
         <div className="empty-state">
           <History size={38} strokeWidth={1.5} />
@@ -171,14 +234,24 @@ export function HistoryPanel({ onClose, onNavigate }: { onClose: () => void; onN
         <div key={group}>
           <div className="group-label">{group}</div>
           {rows.map((e) => (
-            <button key={e.id} className="row-item" onClick={() => onNavigate(e.url)} title={e.url}>
-              <span className="row-icon"><Globe size={14} /></span>
-              <span className="row-main">
-                <span className="row-title">{e.title || domainOf(e.url)}</span>
-                <span className="row-sub">{e.url}</span>
-              </span>
-              <span className="row-time">{timeOf(e.visited_at)}</span>
-            </button>
+            <div key={e.id} className="row-item history-row">
+              <input
+                type="checkbox"
+                className="row-check"
+                checked={selected.has(e.id)}
+                onChange={() => toggleOne(e.id)}
+                aria-label={`Seç: ${e.title || domainOf(e.url)}`}
+                onClick={(ev) => ev.stopPropagation()}
+              />
+              <button className="row-item" style={{ flex: 1, padding: 0, alignItems: "center" }} onClick={() => onNavigate(e.url)} title={e.url}>
+                <span className="row-icon"><Globe size={14} /></span>
+                <span className="row-main">
+                  <span className="row-title">{e.title || domainOf(e.url)}</span>
+                  <span className="row-sub">{e.url}</span>
+                </span>
+                <span className="row-time">{timeOf(e.visited_at)}</span>
+              </button>
+            </div>
           ))}
         </div>
       ))}
@@ -407,6 +480,22 @@ export function SettingsPanel({
       </div>
 
       <div className="card">
+        <h2><ShieldCheck size={15} /> Hesaplar &amp; Giriş</h2>
+        <p>
+          Google gibi servislerin oturum açma akışı bu profilden çerezlerle kalıcı tutulur —
+          <strong>oturum açtığınız sürece tekrar giriş gerekmez.</strong> Gizli sekmede oturum saklanmaz.
+        </p>
+        <div className="card-row">
+          <span style={{ fontWeight: 600 }}>Google'a giriş yap (WebView2)</span>
+          <button className="btn" onClick={() => navigate("https://accounts.google.com")}>Aç</button>
+        </div>
+        <p style={{ margin: "8px 0 0", fontSize: 10.5 }}>
+          Not: Bazı siteler gömülü tarayıcıları bilinçli olarak kısıtlar (403 / “disallowed_useragent”).
+          Bu, sitenin tercihidir; çerez azaltma/QA'ları bizim tarayıcı katmanındadır.
+        </p>
+      </div>
+
+      <div className="card">
         <h2><Info size={15} /> Hakkında</h2>
         <p style={{ marginBottom: 4 }}>
           <strong>QuantumBrowser</strong> v0.1.0 — WebView2 (Chromium) üzerine inşa edilen, Rust çekirdekli,
@@ -436,27 +525,90 @@ export function ProfilesPanel({
 }) {
   const [newName, setNewName] = useState("");
   const [color, setColor] = useState(PROFILE_COLORS[0]);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const initials = (name: string) => {
     const p = name.trim().split(/\s+/).filter(Boolean);
     return ((p[0]?.[0] ?? "?") + (p[1]?.[0] ?? "")).toUpperCase();
   };
 
+  const startEdit = (id: number, current: string) => {
+    setEditingId(id);
+    setEditName(current);
+    setError(null);
+  };
+  const saveEdit = (id: number) => {
+    renameProfile(id, editName)
+      .then(() => {
+        setEditingId(null);
+        onRefresh();
+      })
+      .catch((e) => setError(String(e)));
+  };
+  const removeProfile = (p: { id: number }) => {
+    if (confirmDeleteId !== p.id) {
+      setConfirmDeleteId(p.id);
+      return;
+    }
+    deleteProfile(p.id)
+      .then(() => {
+        setConfirmDeleteId(null);
+        onRefresh();
+      })
+      .catch((e) => {
+        setConfirmDeleteId(null);
+        setError(String(e));
+      });
+  };
+
   return (
     <PanelShell title="Profiller" icon={Users} onClose={onClose}>
       <p style={{ color: "var(--muted)", fontSize: 11.5, margin: "4px 2px 0" }}>
         Her profilin ayrı çerezleri ve oturumu vardır. Profil değiştirmek mevcut sekmeleri kapatır ve yeni
-        boş oturum açar.
+        boş oturum açar. Varsayılan profil ve aktif profil silinemez.
       </p>
+
+      {error && (
+        <div className="card" style={{ borderColor: "var(--danger)", color: "var(--danger)", padding: "10px 14px" }} role="alert">
+          {error}
+        </div>
+      )}
 
       <div className="profile-grid">
         {snapshot.profiles.map((p) => {
           const current = p.id === snapshot.profile_id;
+          const isEditing = editingId === p.id;
           return (
             <div key={p.id} className={`profile-card${current ? " current" : ""}`}>
               <span className="avatar-lg" style={{ background: p.color }}>{initials(p.name)}</span>
-              <span className="profile-card-name">{p.name}</span>
+
+              {isEditing ? (
+                <div className="rename-row">
+                  <input
+                    className="rename-input"
+                    autoFocus
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveEdit(p.id);
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                    maxLength={40}
+                    aria-label="Yeni profil adı"
+                  />
+                  <button className="icon-btn" title="Kaydet" aria-label="Kaydet" onClick={() => saveEdit(p.id)}>
+                    <Check size={15} />
+                  </button>
+                </div>
+              ) : (
+                <span className="profile-card-name">{p.name}</span>
+              )}
+
               {p.is_default && <span className="profile-default">Varsayılan</span>}
+
               {current ? (
                 <span className="btn small" aria-disabled="true" style={{ opacity: 0.65, cursor: "default" }}>
                   <Check size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} /> Mevcut Profil
@@ -464,6 +616,27 @@ export function ProfilesPanel({
               ) : (
                 <button className="btn small" onClick={() => onSwitch(p.id)}>Bu Profili Kullan</button>
               )}
+
+              <div className="profile-actions">
+                <button
+                  className="icon-btn"
+                  title="Yeniden adlandır"
+                  aria-label="Yeniden adlandır"
+                  onClick={() => (isEditing ? setEditingId(null) : startEdit(p.id, p.name))}
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  className="icon-btn"
+                  title={confirmDeleteId === p.id ? "Tekrar tıklayarak sil (geri alınamaz)" : "Profili sil"}
+                  aria-label="Profili sil"
+                  onClick={() => removeProfile(p)}
+                  disabled={p.is_default || current}
+                  style={p.is_default || current ? { opacity: 0.35, cursor: "default" } : undefined}
+                >
+                  {confirmDeleteId === p.id ? <Trash2 size={14} color="var(--danger)" /> : <Trash2 size={14} />}
+                </button>
+              </div>
             </div>
           );
         })}

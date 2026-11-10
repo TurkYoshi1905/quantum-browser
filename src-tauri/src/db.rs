@@ -75,6 +75,13 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(
         r#"
+        CREATE TRIGGER IF NOT EXISTS history_ad AFTER DELETE ON history BEGIN
+            INSERT INTO history_fts(history_fts, rowid, title, url) VALUES('delete', old.id, old.title, old.url);
+        END;
+        CREATE TRIGGER IF NOT EXISTS bookmarks_ad AFTER DELETE ON bookmarks BEGIN
+            INSERT INTO bookmarks_fts(bookmarks_fts, rowid, title, url) VALUES('delete', old.id, old.title, old.url);
+        END;
+
         CREATE TABLE IF NOT EXISTS profiles (
             id          INTEGER PRIMARY KEY,
             name        TEXT NOT NULL,
@@ -224,6 +231,39 @@ pub fn add_profile(conn: &Connection, name: &str, color: &str) -> rusqlite::Resu
         params![name, color, store_id],
     )?;
     Ok(conn.last_insert_rowid())
+}
+
+/// Profil adını günceller. (Boş isim koruması çağıran tarafta yapılır.)
+pub fn rename_profile(conn: &Connection, profile_id: i64, name: &str) -> rusqlite::Result<()> {
+    let clean = name.trim();
+    conn.execute(
+        "UPDATE profiles SET name = ?2 WHERE id = ?1",
+        params![profile_id, clean],
+    )?;
+    Ok(())
+}
+
+/// Profili ve ona bağlı tüm verileri siler (yer imleri, geçmiş, indirmeler, sekme grupları).
+/// Varsayılan profil silinemez; çağrı yerinde aktif profil kontrolü yapılır.
+pub fn delete_profile(conn: &Connection, profile_id: i64) -> rusqlite::Result<()> {
+    conn.execute(
+        "DELETE FROM bookmarks WHERE profile_id = ?1",
+        params![profile_id],
+    )?;
+    conn.execute(
+        "DELETE FROM history WHERE profile_id = ?1",
+        params![profile_id],
+    )?;
+    conn.execute(
+        "DELETE FROM downloads WHERE profile_id = ?1",
+        params![profile_id],
+    )?;
+    conn.execute(
+        "DELETE FROM tab_groups WHERE profile_id = ?1",
+        params![profile_id],
+    )?;
+    conn.execute("DELETE FROM profiles WHERE id = ?1", params![profile_id])?;
+    Ok(())
 }
 
 // ---------- Ayarlar ----------
@@ -382,6 +422,30 @@ pub fn clear_history(conn: &Connection, profile_id: i64) -> rusqlite::Result<()>
         params![profile_id],
     )?;
     Ok(())
+}
+
+/// Seçili geçmiş girdilerini mevcut profil kapsamında siler; kaç satırın etkilendiğini döner.
+pub fn delete_history_entries(
+    conn: &Connection,
+    profile_id: i64,
+    ids: &[i64],
+) -> rusqlite::Result<usize> {
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let placeholders = std::iter::repeat("?")
+        .take(ids.len())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let mut stmt = conn.prepare(&format!(
+        "DELETE FROM history WHERE profile_id = ?1 AND id IN ({placeholders})"
+    ))?;
+    let mut args: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(ids.len() + 1);
+    args.push(&profile_id);
+    for id in ids {
+        args.push(id);
+    }
+    stmt.execute(args.as_slice())
 }
 
 // ---------- İndirmeler ----------

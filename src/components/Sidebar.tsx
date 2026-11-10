@@ -18,6 +18,7 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
+  MoreVertical,
 } from "lucide-react";
 import type { TabMeta, Snapshot } from "../types";
 import ContextMenu, { type MenuEntry } from "./ContextMenu";
@@ -181,6 +182,19 @@ export default function Sidebar(props: Props) {
             <ShieldCheck size={10} strokeWidth={2.2} /> {tab.blocked_count}
           </span>
         )}
+        <span
+          className="tab-more"
+          role="button"
+          aria-label="Sekme seçenekleri"
+          title="Seçenekler"
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setMenu({ x: rect.left, y: rect.bottom + 4, tabId: tab.id });
+          }}
+        >
+          <MoreVertical size={13} strokeWidth={2} />
+        </span>
         <span
           className="tab-close"
           role="button"

@@ -274,6 +274,15 @@ pub fn list_downloads(state: State<'_, AppState>) -> Result<Vec<db::DownloadEntr
     db::list_downloads(&db, profile_id).map_err(|e| e.to_string())
 }
 
+// ---------- Geçmiş silme (seçili) ----------
+
+#[tauri::command]
+pub fn delete_history_entries(state: State<'_, AppState>, ids: Vec<i64>) -> Result<usize, String> {
+    let profile_id = tabs::current_profile_id(&state).ok_or("profil bulunamadı")?;
+    let db = state.db.lock().unwrap();
+    db::delete_history_entries(&db, profile_id, &ids).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn clear_finished_downloads(state: State<'_, AppState>) -> Result<(), String> {
     let db = state.db.lock().unwrap();
@@ -316,6 +325,40 @@ pub fn add_profile(state: State<'_, AppState>, name: String, color: String) -> R
     db::add_profile(&db, clean, &color).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn rename_profile(
+    state: State<'_, AppState>,
+    profile_id: i64,
+    name: String,
+) -> Result<(), String> {
+    let clean = name.trim();
+    if clean.is_empty() {
+        return Err("profil adı boş olamaz".to_string());
+    }
+    let db = state.db.lock().unwrap();
+    let found = db::profile_by_id(&db, profile_id).map_err(|e| e.to_string())?;
+    if found.is_none() {
+        return Err("profil bulunamadı".to_string());
+    }
+    db::rename_profile(&db, profile_id, clean).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_profile(state: State<'_, AppState>, profile_id: i64) -> Result<(), String> {
+    let current = tabs::current_profile_id(&state).ok_or("profil bulunamadı")?;
+    if profile_id == current {
+        return Err("Aktif profili silemezsin — önce başka bir profile geç.".to_string());
+    }
+    let db = state.db.lock().unwrap();
+    let found = db::profile_by_id(&db, profile_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("profil bulunamadı")?;
+    if found.is_default {
+        return Err("Varsayılan profil silinemez.".to_string());
+    }
+    db::delete_profile(&db, profile_id).map_err(|e| e.to_string())
+}
+
 /// Profili değiştirir: mevcut sekmeler kapanır ve yeni oturum başlar.
 /// (Çoklu pencere desteği v0.2'ye ertelendi — kararlar.md'ye not düşüldü.)
 #[tauri::command]
@@ -337,6 +380,22 @@ pub fn switch_profile(app: AppHandle, profile_id: i64) -> Result<(), String> {
         let mut store = state.tabs.lock().unwrap();
         store.profile_id = Some(profile.id);
         store.profile_store_id = Some(profile.store_id);
+    }
+    Ok(())
+}
+
+// ---------- Geliştirici paneli ----------
+
+#[tauri::command]
+pub fn toggle_devtools(app: AppHandle) -> Result<(), String> {
+    let label = tabs::active_label(&app).ok_or("aktif sekme yok")?;
+    let Some(wv) = app.get_webview(&label) else {
+        return Err("aktif webview bulunamadı".to_string());
+    };
+    if wv.is_devtools_open() {
+        let _ = wv.close_devtools();
+    } else {
+        let _ = wv.open_devtools();
     }
     Ok(())
 }

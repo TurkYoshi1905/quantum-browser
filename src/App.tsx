@@ -123,6 +123,13 @@ export default function App() {
   // AcceleratorKeyPressed kancası devreye girecek)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // F12 — geliştirici panelini aç/kapat (kabuğun dışında, sayfa bağlamında)
+      if (e.key === "F12" || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "i")) {
+        e.preventDefault();
+        api.toggleDevtools();
+        return;
+      }
+
       const mod = e.ctrlKey || e.metaKey;
       const alt = e.altKey;
       const shift = e.shiftKey;
