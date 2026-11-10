@@ -3,7 +3,8 @@
 //! Her sekme, kabuk penceresinin içinde katman olarak açılan gerçek bir webview'dur.
 
 use crate::blocker;
-use crate::db::{self, Connection, TabGroup};
+use crate::db::{self, TabGroup};
+use rusqlite::Connection;
 use serde::Serialize;
 use std::sync::Mutex;
 use tauri::{
@@ -111,7 +112,8 @@ pub fn relayout(app: &AppHandle) -> Result<(), String> {
         .get_window("shell")
         .ok_or_else(|| "kabuk penceresi bulunamadı".to_string())?;
     let (active, overlay, collapsed) = {
-        let store = app.state::<AppState>().tabs.lock().unwrap();
+        let state = app.state::<AppState>();
+        let store = state.tabs.lock().unwrap();
         (
             store.active.clone(),
             store.overlay_open,
@@ -120,7 +122,8 @@ pub fn relayout(app: &AppHandle) -> Result<(), String> {
     };
     let page = page_rect(&window, collapsed);
     let labels: Vec<String> = {
-        let store = app.state::<AppState>().tabs.lock().unwrap();
+        let state = app.state::<AppState>();
+        let store = state.tabs.lock().unwrap();
         store.tabs.iter().map(|t| t.id.clone()).collect()
     };
     for label in labels {
@@ -412,7 +415,8 @@ pub fn create_tab(
 
 pub fn activate_tab(app: &AppHandle, label: &str) -> Result<(), String> {
     {
-        let mut store = app.state::<AppState>().tabs.lock().unwrap();
+        let state = app.state::<AppState>();
+        let mut store = state.tabs.lock().unwrap();
         if store.tabs.iter().any(|t| t.id == label) {
             store.active = Some(label.to_string());
         } else {
@@ -456,7 +460,8 @@ fn destroy_webview(app: &AppHandle, label: &str) {
 
 pub fn duplicate_tab(app: &AppHandle, label: &str) -> Result<(), String> {
     let source = {
-        let store = app.state::<AppState>().tabs.lock().unwrap();
+        let state = app.state::<AppState>();
+        let store = state.tabs.lock().unwrap();
         store.tabs.iter().find(|t| t.id == label).cloned()
     };
     let Some(source) = source else {
@@ -471,7 +476,8 @@ pub fn duplicate_tab(app: &AppHandle, label: &str) -> Result<(), String> {
 }
 
 pub fn move_tab(app: &AppHandle, from_id: &str, to_id: &str) -> Result<(), String> {
-    let mut store = app.state::<AppState>().tabs.lock().unwrap();
+    let state = app.state::<AppState>();
+    let mut store = state.tabs.lock().unwrap();
     let from = store
         .tabs
         .iter()
@@ -489,7 +495,8 @@ pub fn move_tab(app: &AppHandle, from_id: &str, to_id: &str) -> Result<(), Strin
 }
 
 pub fn toggle_pin(app: &AppHandle, label: &str) -> Result<(), String> {
-    let mut store = app.state::<AppState>().tabs.lock().unwrap();
+    let state = app.state::<AppState>();
+    let mut store = state.tabs.lock().unwrap();
     if let Some(tab) = store.tabs.iter_mut().find(|t| t.id == label) {
         tab.pinned = !tab.pinned;
     } else {
@@ -502,7 +509,8 @@ pub fn toggle_pin(app: &AppHandle, label: &str) -> Result<(), String> {
 
 pub fn close_others(app: &AppHandle, keep: &str) -> Result<(), String> {
     let labels: Vec<String> = {
-        let store = app.state::<AppState>().tabs.lock().unwrap();
+        let state = app.state::<AppState>();
+        let store = state.tabs.lock().unwrap();
         store
             .tabs
             .iter()
@@ -518,7 +526,8 @@ pub fn close_others(app: &AppHandle, keep: &str) -> Result<(), String> {
 
 pub fn set_overlay_open(app: &AppHandle, open: bool) {
     {
-        let mut store = app.state::<AppState>().tabs.lock().unwrap();
+        let state = app.state::<AppState>();
+        let mut store = state.tabs.lock().unwrap();
         store.overlay_open = open;
     }
     let _ = relayout(app);
@@ -527,7 +536,8 @@ pub fn set_overlay_open(app: &AppHandle, open: bool) {
 
 pub fn set_sidebar_collapsed(app: &AppHandle, collapsed: bool) {
     {
-        let mut store = app.state::<AppState>().tabs.lock().unwrap();
+        let state = app.state::<AppState>();
+        let mut store = state.tabs.lock().unwrap();
         store.sidebar_collapsed = collapsed;
     }
     {
@@ -540,7 +550,8 @@ pub fn set_sidebar_collapsed(app: &AppHandle, collapsed: bool) {
 
 pub fn set_blocker_enabled(app: &AppHandle, enabled: bool) {
     {
-        let mut store = app.state::<AppState>().tabs.lock().unwrap();
+        let state = app.state::<AppState>();
+        let mut store = state.tabs.lock().unwrap();
         store.blocker_enabled = enabled;
     }
     let db = app.state::<AppState>().db.lock().unwrap();
@@ -559,14 +570,16 @@ pub fn navigate_active(app: &AppHandle, url_input: &str) -> Result<(), String> {
         normalized
     };
     let active = {
-        let store = app.state::<AppState>().tabs.lock().unwrap();
+        let state = app.state::<AppState>();
+        let store = state.tabs.lock().unwrap();
         store.active.clone()
     };
     let Some(label) = active else {
         return Err("aktif sekme yok".to_string());
     };
     {
-        let mut store = app.state::<AppState>().tabs.lock().unwrap();
+        let state = app.state::<AppState>();
+        let mut store = state.tabs.lock().unwrap();
         if let Some(tab) = store.tabs.iter_mut().find(|t| t.id == label) {
             tab.url = url.clone();
             tab.is_newtab = false;
@@ -580,11 +593,14 @@ pub fn navigate_active(app: &AppHandle, url_input: &str) -> Result<(), String> {
 }
 
 pub fn active_label(app: &AppHandle) -> Option<String> {
-    app.state::<AppState>().tabs.lock().unwrap().active.clone()
+    let state = app.state::<AppState>();
+    let store = state.tabs.lock().unwrap();
+    store.active.clone()
 }
 
 pub fn active_url(app: &AppHandle) -> String {
-    let store = app.state::<AppState>().tabs.lock().unwrap();
+    let state = app.state::<AppState>();
+    let store = state.tabs.lock().unwrap();
     store
         .active
         .as_deref()
@@ -599,7 +615,8 @@ pub fn active_url(app: &AppHandle) -> String {
 }
 
 pub fn is_active_incognito(app: &AppHandle) -> bool {
-    let store = app.state::<AppState>().tabs.lock().unwrap();
+    let state = app.state::<AppState>();
+    let store = state.tabs.lock().unwrap();
     store
         .active
         .as_deref()
@@ -637,8 +654,8 @@ fn take_pwstr(f: impl FnOnce(*mut windows::core::PWSTR) -> windows::core::Result
 
 #[cfg(windows)]
 fn hook_web_resource_requested(webview: &Webview, app: &AppHandle, label: String) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL;
     use webview2_com::WebResourceRequestedEventHandler;
-    use webview2_com_sys::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL;
     use windows::core::{Interface, HSTRING, PCWSTR};
     use windows::Win32::System::Com::StructuredStorage::CreateStreamOnHGlobal;
     use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};

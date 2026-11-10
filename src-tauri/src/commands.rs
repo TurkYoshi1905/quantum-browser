@@ -317,7 +317,8 @@ pub fn add_profile(state: State<'_, AppState>, name: String, color: String) -> R
 #[tauri::command]
 pub fn switch_profile(app: AppHandle, profile_id: i64) -> Result<(), String> {
     let labels: Vec<String> = {
-        let store = app.state::<AppState>().tabs.lock().unwrap();
+        let state = app.state::<AppState>();
+        let store = state.tabs.lock().unwrap();
         store.tabs.iter().map(|t| t.id.clone()).collect()
     };
     for label in labels {
