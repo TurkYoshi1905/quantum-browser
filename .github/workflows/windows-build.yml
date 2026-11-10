@@ -1,0 +1,100 @@
+name: Windows 64-bit Build
+
+# QuantumBrowser — Windows x64 derleme hattı
+# SAC açıkken bile (Windows runners'da derlenir) çalışır.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node 22 kurulumu
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Rust kurulumu (stable, x86_64-pc-windows-msvc)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo önbellek
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Bağımlılıklar
+        run: npm ci
+
+      - name: Frontend üretimi (tsc + vite)
+        run: npm run build
+
+      - name: Tauri derlemesi (release NSIS .exe)
+        run: npx tauri build
+
+      - name: Installer artefaktını kaydet
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuantumBrowser-windows-x64
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/*.exe
+          if-no-files-found: warn
+
+      - name: GitHub Release (main hattı)
+        if: github.ref == 'refs/heads/main' && success()
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v0.1.0-build.${{ github.run_number }}
+          name: QuantumBrowser v0.1.0 — build ${{ github.run_number }} (Windows x64)
+          body: |
+            ⚛️ **QuantumBrowser v0.1.0** — Tauri v2 + Rust + React ile inşa edildi.
+
+            ⚠️ **İmzasız derleme.** Windows, "PC'niz korundu / Windows protected your PC" uyarısı gösterebilir.
+            Bu, Microsoft'un bilinmeyen imzasız uygulamalar için standart uyarısıdır:
+            **More info → Run anyway** ile çalıştırabilirsiniz.
+            İmzalama (resmi sürüm) v1.0 hedefidir.
+
+            Kurulum: `QuantumBrowser_0.1.0_x64-setup.exe` dosyasını çalıştırın.
+            WebView2 Runtime gerektirir (Windows 10/11'de zaten yüklüdür; yüklü değilse kurulumcu indirir).
+
+            Bilinen sınırlar: Chrome uzantıları yok (WebView2), bazı sitelerde Google OAuth 403 verebilir,
+            DRM (Netflix) değişiklik gösterebilir.
+          files: src-tauri/target/release/bundle/nsis/*.exe
+          fail_on_unmatched_files: false
+
+# ---------------------------------------------------------------------------
+# 🖊️ KOD İMZALAMA (opsiyonel — v1.0)
+# Bir sertifika aldıktan sonra `tauri.conf.json > bundle > windows` altına
+# certificateThumbprint/digest, veya Azure Trusted Signing profilini ekleyin:
+#   1) Azure Trusted Signing hesabı açın (uygun ülkeler: ABD/Kanada/AB/İngiltere)
+#   2) Azure Portal → Trusted Signing → Sertifika Profil ID alın
+#   3) Repoya GitHub Secrets olarak ekleyin: AZURE_TENANT_ID, AZURE_CLIENT_ID,
+#      AZURE_CLIENT_SECRET, TRUSTED_SIGNING_PROFILE_NAME, TRUSTED_SIGNING_ENDPOINT
+#   4) Aşağıdaki adımı yorumdan çıkarın:
+#
+#      - name: Azure Trusted Signing ile imzala
+#        uses: azure/trusted-signing-action@v0.3.8
+#        with:
+#          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+#          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+#          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+#          endpoint: https://eus.codesigning.azure.net
+#          trusted-signing-account-name: ${{ secrets.TRUSTED_SIGNING_PROFILE_NAME }}
+#          certificate-profile-name: QuantumBrowserCert
+#          files-folder: src-tauri/target/release/bundle/nsis
+#          files-folder-filter: exe
+#
+# Alternatif: SignPath.io — MIT açık kaynak projelere ücretsiz imzalama (başvuru: signpath.io)
+# ---------------------------------------------------------------------------
