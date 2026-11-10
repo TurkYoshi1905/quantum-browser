@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Atom,
   Bookmark,
@@ -40,6 +40,7 @@ interface Props {
   onAssignGroup: (tabId: string, groupId: number | null) => void;
   onCreateGroupAndAssign: (tabId: string, name: string, color: string) => void;
   onOpenPanel: (panel: Panel) => void;
+  onMenuChange?: (open: boolean) => void;
 }
 
 function hueFromString(s: string): number {
@@ -86,6 +87,12 @@ export default function Sidebar(props: Props) {
   const [menu, setMenu] = useState<{ x: number; y: number; tabId: string } | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+
+  // Menü açık/kapalı bilgisini üst yönetime bildir (çocuk webview'ı küçültmek için)
+  const { onMenuChange } = props;
+  useEffect(() => {
+    onMenuChange?.(menu !== null);
+  }, [menu, onMenuChange]);
 
   const pinned = snapshot.tabs.filter((t) => t.pinned);
   const rest = snapshot.tabs.filter((t) => !t.pinned);

@@ -80,10 +80,13 @@ export default function App() {
     return () => mq.removeEventListener?.("change", apply);
   }, [theme]);
 
-  // Panel açıldığında çocuk webview'ları gizle (panel öne gelsin)
+  // Panel/popover/bildirim açıkken çocuk webview'ları küçült ki kabuğun
+  // açılır menüleri sayfanın önünde kalsın (üstte native HWND çizilir)
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const overlayOpen = panel !== null || popoverOpen || toast !== null;
   useEffect(() => {
-    api.setOverlayOpen(panel !== null).catch(() => {});
-  }, [panel]);
+    api.setOverlayOpen(overlayOpen).catch(() => {});
+  }, [overlayOpen]);
 
   const activeTab = snapshot?.tabs.find((t) => t.id === snapshot.active_id) ?? null;
   const activeUrl = activeTab?.url ?? "";
@@ -271,6 +274,7 @@ export default function App() {
           onAssignGroup={(tabId, groupId) => api.assignGroup(tabId, groupId).then(refresh)}
           onCreateGroupAndAssign={handleCreateGroupAndAssign}
           onOpenPanel={setPanel}
+          onMenuChange={setPopoverOpen}
         />
 
         <div className="content">
@@ -291,6 +295,7 @@ export default function App() {
             onNewTab={() => api.newTab()}
             onNewIncognito={() => api.newIncognitoTab()}
             onOpenPanel={setPanel}
+            onMenuChange={setPopoverOpen}
           />
 
           <div className="page-area">

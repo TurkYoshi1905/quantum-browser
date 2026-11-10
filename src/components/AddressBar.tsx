@@ -37,10 +37,11 @@ interface Props {
   onNewTab: () => void;
   onNewIncognito: () => void;
   onOpenPanel: (panel: Panel) => void;
+  onMenuChange?: (open: boolean) => void;
 }
 
 export default function AddressBar(props: Props) {
-  const { url, inputRef } = props;
+  const { url, inputRef, onMenuChange } = props;
   const [value, setValue] = useState(url);
   const [menuOpen, setMenuOpen] = useState(false);
   const [spinning, setSpinning] = useState(false);
@@ -53,6 +54,11 @@ export default function AddressBar(props: Props) {
   useEffect(() => {
     setValue(props.isNewTab ? "" : url);
   }, [url, props.isNewTab]);
+
+  // Menü açık/kapalı bilgisini üst yönetime bildir (çocuk webview'ı küçültmek için)
+  useEffect(() => {
+    onMenuChange?.(menuOpen);
+  }, [menuOpen, onMenuChange]);
 
   // Menü dışı tıklamada kapat
   useEffect(() => {
