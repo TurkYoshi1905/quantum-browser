@@ -83,4 +83,4 @@ assets/             Logo kaynakları (SVG + PNG)
 
 ## 🪪 Lisans
 
-MIT — bkz. [LICENSE](LICENSE). Lucide ikonları ISC, Tauri MIT/Apache-2.0, WebView2 Microsoft şartları.
+AGPL-3.0 — bkz. [LICENSE](LICENSE). (Yeni GitHub kurulumunda AGPL-3.0 seçildi; repo dışarıya açık kalacaksa dağıtım koşulları buna göre.) Lucide ikonları ISC, Tauri MIT/Apache-2.0, WebView2 Microsoft şartları.
