@@ -6,6 +6,7 @@ use crate::blocker;
 use crate::db::{self, TabGroup};
 use rusqlite::Connection;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::{
     webview::{PageLoadEvent, WebviewBuilder},
@@ -105,8 +106,8 @@ pub fn page_rect(window: &Window, collapsed: bool) -> (LogicalPosition<f64>, Log
     )
 }
 
-/// Aktif webview'u sayfa alanına, diğerlerini gizler.
-/// overlay_open iken (geçmiş/ayarlar gibi paneller açıkken) hepsi gizlenir.
+/// Aktif webview'u sayfa alanına alır, diğerlerini 1x1'e küçültür.
+/// (hide/show yerine yalnızca bounds — sık çağrıda kararlı çalışır)
 pub fn relayout(app: &AppHandle) -> Result<(), String> {
     let window = app
         .get_window("shell")
@@ -121,6 +122,7 @@ pub fn relayout(app: &AppHandle) -> Result<(), String> {
         )
     };
     let page = page_rect(&window, collapsed);
+    let zero = (LogicalPosition::new(0.0, 0.0), LogicalSize::new(1.0, 1.0));
     let labels: Vec<String> = {
         let state = app.state::<AppState>();
         let store = state.tabs.lock().unwrap();
@@ -128,12 +130,11 @@ pub fn relayout(app: &AppHandle) -> Result<(), String> {
     };
     for label in labels {
         if let Some(wv) = app.get_webview(&label) {
-            let is_active = active.as_deref() == Some(label.as_str());
-            set_webview_rect(&wv, page.0, page.1);
-            if overlay || !is_active {
-                let _ = wv.hide();
+            let is_active = !overlay && active.as_deref() == Some(label.as_str());
+            if is_active {
+                set_webview_rect(&wv, page.0, page.1);
             } else {
-                let _ = wv.show();
+                set_webview_rect(&wv, zero.0, zero.1);
             }
         }
     }
@@ -655,6 +656,9 @@ fn take_pwstr(f: impl FnOnce(*mut windows::core::PWSTR) -> windows::core::Result
     }
 }
 
+static BLOCKER_LAST_EMIT: std::sync::LazyLock<Mutex<HashMap<String, std::time::Instant>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
 #[cfg(windows)]
 fn hook_web_resource_requested(webview: &Webview, app: &AppHandle, label: String) {
     use webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL;
@@ -699,17 +703,34 @@ fn hook_web_resource_requested(webview: &Webview, app: &AppHandle, label: String
             if !blocker::is_blocked(&url) {
                 return Ok(());
             }
-            // Engellenen sayacı artır + olayı uygun et
+            // Engellenen sayacı artır + olayı yayın (en fazla 2.5 kez/sn)
             {
                 let state = app_for_block.state::<AppState>();
-                let mut store = state.tabs.lock().unwrap();
-                if let Some(tab) = store.tabs.iter_mut().find(|t| t.id == label_for_block) {
-                    tab.blocked_count += 1;
-                    let count = tab.blocked_count;
-                    let _ = app_for_block.emit(
-                        "blocker-count",
-                        serde_json::json!({ "id": label_for_block, "count": count }),
-                    );
+                let count = {
+                    let mut store = state.tabs.lock().unwrap();
+                    store
+                        .tabs
+                        .iter_mut()
+                        .find(|t| t.id == label_for_block)
+                        .map(|tab| {
+                            tab.blocked_count += 1;
+                            tab.blocked_count
+                        })
+                };
+                if let Some(count) = count {
+                    let mut last = BLOCKER_LAST_EMIT.lock().unwrap();
+                    let now = std::time::Instant::now();
+                    let should = last
+                        .get(&label_for_block)
+                        .map(|t| now.duration_since(*t) >= std::time::Duration::from_millis(400))
+                        .unwrap_or(true);
+                    if should {
+                        last.insert(label_for_block.clone(), now);
+                        let _ = app_for_block.emit(
+                            "blocker-count",
+                            serde_json::json!({ "id": label_for_block, "count": count }),
+                        );
+                    }
                 }
             }
             // Boş bir 403 yanıtı ile engelle
