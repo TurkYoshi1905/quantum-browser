@@ -285,7 +285,7 @@ pub fn create_tab(
         let db = state.db.lock().unwrap();
         db::get_setting(&db, "search_engine")
     };
-    let normalized = url_opt.map(|u| normalize_url(&u, &search_engine));
+    let normalized = url_opt.as_ref().map(|u| normalize_url(u, &search_engine));
 
     let label = format!("tab-{}", uuid::Uuid::new_v4().simple());
     let is_newtab = normalized.as_deref().unwrap_or("").is_empty();
@@ -541,7 +541,8 @@ pub fn set_sidebar_collapsed(app: &AppHandle, collapsed: bool) {
         store.sidebar_collapsed = collapsed;
     }
     {
-        let db = app.state::<AppState>().db.lock().unwrap();
+        let state = app.state::<AppState>();
+        let db = state.db.lock().unwrap();
         let _ = db::set_setting(&db, "sidebar_collapsed", if collapsed { "1" } else { "0" });
     }
     let _ = relayout(app);
@@ -554,13 +555,15 @@ pub fn set_blocker_enabled(app: &AppHandle, enabled: bool) {
         let mut store = state.tabs.lock().unwrap();
         store.blocker_enabled = enabled;
     }
-    let db = app.state::<AppState>().db.lock().unwrap();
+    let state = app.state::<AppState>();
+    let db = state.db.lock().unwrap();
     let _ = db::set_setting(&db, "blocker_enabled", if enabled { "1" } else { "0" });
 }
 
 pub fn navigate_active(app: &AppHandle, url_input: &str) -> Result<(), String> {
     let search_engine = {
-        let db = app.state::<AppState>().db.lock().unwrap();
+        let state = app.state::<AppState>();
+        let db = state.db.lock().unwrap();
         db::get_setting(&db, "search_engine")
     };
     let normalized = normalize_url(url_input, &search_engine);
