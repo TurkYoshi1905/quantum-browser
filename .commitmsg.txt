@@ -1,0 +1,9 @@
+feat: QuantumBrowser v0.1.0 — Tauri v2 + Rust + React Windows MVP
+
+- Dikey sekme seridi (surukle-birak, sabitle, gruplar, orta tus kapat)
+- Coklu webview sekme motoru (unstable feature), runtime yerlesim
+- Yerlesik reklam ve izleyici engelleyici (host matcher + kozmetik filtre)
+- Downloads yoneticisi (Downloads/QuantumBrowser + SQLite)
+- Yer imleri ve gecmis (FTS5), arama motoru secimi, gizli sekmeler
+- Coklu profil (ayri WebView2 veri depolari), Arc tarzi UI
+- Rust 1.90+ / MSVC / WebView2 157 hedefi

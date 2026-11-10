@@ -1,0 +1,37 @@
+[package]
+name = "quantum-browser"
+version = "0.1.0"
+description = "QuantumBrowser — WebView2 tabanlı, Arc tarzı, gizlilik saygılı Windows tarayıcı"
+authors = ["QuantumBrowser"]
+license = "MIT"
+repository = "https://github.com/quantumbrowser/quantum-browser"
+edition = "2021"
+rust-version = "1.90"
+default-run = "quantum-browser"
+
+[dependencies]
+tauri = { version = "2", features = ["unstable"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.41.1", features = ["bundled"] }
+uuid = { version = "1.29.2", features = ["v4", "serde"] }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
+
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39.1"
+windows = { version = "0.62.2", features = [
+  "Win32_Foundation",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Memory",
+  "Win32_System_Ole",
+] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+opt-level = 3

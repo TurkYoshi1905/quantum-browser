@@ -1,0 +1,29 @@
+# Bağımlılıklar
+node_modules/
+
+# Derleme çıktıları
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Loglar / önbellekler
+*.log
+.vite/
+.cache/
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# İşletim sistemi
+Thumbs.db
+.DS_Store
+
+# Tauri paketleyicisi
+/src-tauri/WixTools/
+*.msi
+*.exe
+
+# Kişisel notlar
+.local/
