@@ -72,6 +72,7 @@ pub struct Snapshot {
 // ---------- Yerleşim ----------
 
 const TITLEBAR_H: f64 = 40.0;
+const ADDRESSBAR_H: f64 = 52.0;
 const SIDEBAR_W: f64 = 248.0;
 const SIDEBAR_W_COLLAPSED: f64 = 60.0;
 
@@ -99,9 +100,9 @@ pub fn page_rect(window: &Window, collapsed: bool) -> (LogicalPosition<f64>, Log
     let (w, h) = logical_inner(window);
     let sidebar = sidebar_width(collapsed);
     let pw = (w - sidebar).max(240.0);
-    let ph = (h - TITLEBAR_H).max(180.0);
+    let ph = (h - TITLEBAR_H - ADDRESSBAR_H).max(180.0);
     (
-        LogicalPosition::new(sidebar, TITLEBAR_H),
+        LogicalPosition::new(sidebar, TITLEBAR_H + ADDRESSBAR_H),
         LogicalSize::new(pw, ph),
     )
 }
