@@ -58,7 +58,7 @@ pub fn go_back(app: AppHandle) {
     #[cfg(windows)]
     {
         if let Some(label) = tabs::active_label(&app) {
-            if let Ok(wv) = app.get_webview(&label) {
+            if let Some(wv) = app.get_webview(&label) {
                 let _ = wv.with_webview(|platform| unsafe {
                     let _ = platform.controller().CoreWebView2().map(|core| {
                         let _ = core.GoBack();
@@ -78,7 +78,7 @@ pub fn go_forward(app: AppHandle) {
     #[cfg(windows)]
     {
         if let Some(label) = tabs::active_label(&app) {
-            if let Ok(wv) = app.get_webview(&label) {
+            if let Some(wv) = app.get_webview(&label) {
                 let _ = wv.with_webview(|platform| unsafe {
                     let _ = platform.controller().CoreWebView2().map(|core| {
                         let _ = core.GoForward();
@@ -98,7 +98,7 @@ pub fn reload(app: AppHandle) {
     #[cfg(windows)]
     {
         if let Some(label) = tabs::active_label(&app) {
-            if let Ok(wv) = app.get_webview(&label) {
+            if let Some(wv) = app.get_webview(&label) {
                 let _ = wv.with_webview(|platform| unsafe {
                     let _ = platform.controller().CoreWebView2().map(|core| {
                         let _ = core.Reload();

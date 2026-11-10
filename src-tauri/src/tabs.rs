@@ -124,7 +124,7 @@ pub fn relayout(app: &AppHandle) -> Result<(), String> {
         store.tabs.iter().map(|t| t.id.clone()).collect()
     };
     for label in labels {
-        if let Ok(wv) = app.get_webview(&label) {
+        if let Some(wv) = app.get_webview(&label) {
             let is_active = active.as_deref() == Some(label.as_str());
             set_webview_rect(&wv, page.0, page.1);
             if overlay || !is_active {
@@ -344,7 +344,7 @@ pub fn create_tab(
     let app_for_load = app.clone();
     let load_profile_id = profile_id;
     builder = builder.on_page_load(move |wv, payload| {
-        if payload.event() != PageLoadEvent::Finished {
+        if !matches!(payload.event(), PageLoadEvent::Finished) {
             return;
         }
         let url = payload.url().to_string();
@@ -449,7 +449,7 @@ pub fn close_tab(app: &AppHandle, label: &str) -> Result<(), String> {
 }
 
 fn destroy_webview(app: &AppHandle, label: &str) {
-    if let Ok(wv) = app.get_webview(label) {
+    if let Some(wv) = app.get_webview(label) {
         let _ = wv.close();
     }
 }
@@ -572,7 +572,7 @@ pub fn navigate_active(app: &AppHandle, url_input: &str) -> Result<(), String> {
             tab.is_newtab = false;
         }
     }
-    if let Ok(wv) = app.get_webview(&label) {
+    if let Some(wv) = app.get_webview(&label) {
         let _ = wv.navigate(url.parse().map_err(|e| format!("geçersiz URL: {e}"))?);
     }
     emit_tabs_changed(app);
