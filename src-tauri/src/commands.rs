@@ -14,12 +14,16 @@ pub fn get_snapshot(app: AppHandle) -> Snapshot {
 // ---------- Sekmeler ----------
 
 #[tauri::command]
-pub fn new_tab(app: AppHandle, url: Option<String>, incognito: Option<bool>) -> Result<(), String> {
+pub async fn new_tab(
+    app: AppHandle,
+    url: Option<String>,
+    incognito: Option<bool>,
+) -> Result<(), String> {
     tabs::create_tab(&app, url, incognito.unwrap_or(false)).map(|_| ())
 }
 
 #[tauri::command]
-pub fn close_tab(app: AppHandle, id: String) -> Result<(), String> {
+pub async fn close_tab(app: AppHandle, id: String) -> Result<(), String> {
     tabs::close_tab(&app, &id)
 }
 
@@ -29,7 +33,7 @@ pub fn activate_tab(app: AppHandle, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn duplicate_tab(app: AppHandle, id: String) -> Result<(), String> {
+pub async fn duplicate_tab(app: AppHandle, id: String) -> Result<(), String> {
     tabs::duplicate_tab(&app, &id)
 }
 
@@ -44,17 +48,17 @@ pub fn toggle_pin(app: AppHandle, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn close_others(app: AppHandle, id: String) -> Result<(), String> {
+pub async fn close_others(app: AppHandle, id: String) -> Result<(), String> {
     tabs::close_others(&app, &id)
 }
 
 #[tauri::command]
-pub fn navigate(app: AppHandle, url: String) -> Result<(), String> {
+pub async fn navigate(app: AppHandle, url: String) -> Result<(), String> {
     tabs::navigate_active(&app, &url)
 }
 
 #[tauri::command]
-pub fn go_back(app: AppHandle) {
+pub async fn go_back(app: AppHandle) {
     #[cfg(windows)]
     {
         if let Some(label) = tabs::active_label(&app) {
@@ -74,7 +78,7 @@ pub fn go_back(app: AppHandle) {
 }
 
 #[tauri::command]
-pub fn go_forward(app: AppHandle) {
+pub async fn go_forward(app: AppHandle) {
     #[cfg(windows)]
     {
         if let Some(label) = tabs::active_label(&app) {
@@ -94,7 +98,7 @@ pub fn go_forward(app: AppHandle) {
 }
 
 #[tauri::command]
-pub fn reload(app: AppHandle) {
+pub async fn reload(app: AppHandle) {
     #[cfg(windows)]
     {
         if let Some(label) = tabs::active_label(&app) {
@@ -114,7 +118,7 @@ pub fn reload(app: AppHandle) {
 }
 
 #[tauri::command]
-pub fn new_incognito_tab(app: AppHandle) -> Result<(), String> {
+pub async fn new_incognito_tab(app: AppHandle) -> Result<(), String> {
     tabs::create_tab(&app, None, true).map(|_| ())
 }
 

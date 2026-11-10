@@ -147,6 +147,29 @@ fn set_webview_rect(wv: &Webview, pos: LogicalPosition<f64>, size: LogicalSize<f
     let _ = wv.set_size(size);
 }
 
+/// Hafif tanılama kaydı — donma olursa `%LOCALAPPDATA%/com.quantum.browser/rust.log`undan bakılır.
+#[cfg(not(test))]
+fn dbg_log(msg: &str) {
+    use std::io::Write;
+    if let Ok(dir) = std::env::var("LOCALAPPDATA")
+        .map(|p| std::path::PathBuf::from(p).join("com.quantum.browser"))
+    {
+        std::fs::create_dir_all(&dir).ok();
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(dir.join("rust.log"))
+        {
+            let _ = writeln!(
+                f,
+                "[{}] {}",
+                chrono::Utc::now().format("%Y-%m-%d %H:%M:%S%.3f"),
+                msg
+            );
+        }
+    }
+}
+
 // ---------- Snapshot / olaylar ----------
 
 pub fn emit_tabs_changed(app: &AppHandle) {
@@ -290,6 +313,9 @@ pub fn create_tab(
 
     let label = format!("tab-{}", uuid::Uuid::new_v4().simple());
     let is_newtab = normalized.as_deref().unwrap_or("").is_empty();
+    dbg_log(&format!(
+        "create_tab başladı label={label} is_newtab={is_newtab} incognito={incognito}"
+    ));
     let webview_url = if is_newtab {
         WebviewUrl::App("index.html#/newtab".into())
     } else {
@@ -387,6 +413,7 @@ pub fn create_tab(
     let webview = window
         .add_child(builder, pos, size)
         .map_err(|e| format!("webview oluşturulamadı: {e}"))?;
+    dbg_log(&format!("add_child OK label={label}"));
 
     // Reklam engelleyiciyi bağla (Windows)
     hook_web_resource_requested(&webview, app, label.clone());
