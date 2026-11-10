@@ -87,15 +87,22 @@ pub fn on_download(
                 let _ = app.emit("downloads-changed", serde_json::json!({}));
                 true // indirmeye izin ver
             }
-            // İndirme bitti (başarılı veya değil)
+            // İndirme bitti (başarılı veya değil). path Option'dır.
             DownloadEvent::Finished { url, path, success } => {
-                let path_str = path.to_string_lossy().into_owned();
-                let bytes = std::fs::metadata(path).map(|m| m.len() as i64).unwrap_or(0);
-                let state = if success { "completed" } else { "interrupted" };
+                let path_str = path
+                    .as_ref()
+                    .map(|p| p.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                let bytes = path
+                    .as_ref()
+                    .and_then(|p| std::fs::metadata(p).ok())
+                    .map(|m| m.len() as i64)
+                    .unwrap_or(0);
+                let status = if success { "completed" } else { "interrupted" };
                 let app_state = app.state::<AppState>();
                 if let Some(id) = download_ids().remove(&path_str) {
                     if let Ok(db) = app_state.db.lock() {
-                        let _ = db::update_download(&db, id, bytes, bytes, state, true);
+                        let _ = db::update_download(&db, id, bytes, bytes, status, true);
                     }
                 } else {
                     // Eşleşme yoksa url üzerinden dene (konum farklılaştırma)
@@ -108,7 +115,7 @@ pub fn on_download(
                             &path_str,
                         )
                         .map(|id| {
-                            let _ = db::update_download(&db, id, bytes, bytes, state, true);
+                            let _ = db::update_download(&db, id, bytes, bytes, status, true);
                         });
                     }
                 }
