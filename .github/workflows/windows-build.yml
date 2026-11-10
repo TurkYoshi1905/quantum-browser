@@ -38,7 +38,30 @@ jobs:
         run: npm run build
 
       - name: Tauri derlemesi (release NSIS .exe)
-        run: npx tauri build
+        id: tauri_build
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npx tauri build 2>&1 | tee build.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit $code
+
+      - name: Derleme hatalarını annotations'a yaz
+        if: steps.tauri_build.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "== Hata satırları =="
+          grep -nE "^error" build.log | head -n 40
+          echo "== Detay =="
+          grep -nE "error\[|^error:" build.log | head -n 40 | while IFS= read -r line; do
+            echo "::error::$line"
+          done
+          grep -A6 -E "error\[|^error:" build.log | head -n 120 | while IFS= read -r line; do
+            echo "::error::$line"
+          done
+          exit 1
 
       - name: Installer artefaktını kaydet
         if: always()
