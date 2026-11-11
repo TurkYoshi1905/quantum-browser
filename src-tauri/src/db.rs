@@ -131,6 +131,11 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             finished_at     TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS session (
+            id          INTEGER PRIMARY KEY CHECK (id = 1),
+            state       TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS settings (
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
@@ -164,6 +169,7 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         ("theme", "light"),
         ("blocker_enabled", "1"),
         ("sidebar_collapsed", "0"),
+        ("session_restore", "1"),
     ] {
         conn.execute(
             "INSERT OR IGNORE INTO settings (key, value) VALUES (?1, ?2)",
@@ -566,4 +572,20 @@ pub fn toggle_group_collapsed(conn: &Connection, group_id: i64) -> rusqlite::Res
 pub fn delete_group(conn: &Connection, group_id: i64) -> rusqlite::Result<()> {
     conn.execute("DELETE FROM tab_groups WHERE id = ?1", params![group_id])?;
     Ok(())
+}
+
+// ---------- Oturum ----------
+
+pub fn save_session(conn: &Connection, state_json: &str) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO session (id, state) VALUES (1, ?1)
+         ON CONFLICT(id) DO UPDATE SET state = excluded.state",
+        params![state_json],
+    )?;
+    Ok(())
+}
+
+pub fn load_session(conn: &Connection) -> rusqlite::Result<Option<String>> {
+    conn.query_row("SELECT state FROM session WHERE id = 1", [], |r| r.get(0))
+        .optional()
 }

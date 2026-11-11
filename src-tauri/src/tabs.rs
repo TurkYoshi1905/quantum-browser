@@ -171,9 +171,46 @@ fn dbg_log(msg: &str) {
     }
 }
 
+// ---------- Oturum ----------
+
+/// Açık sekmelerin listesini SQLite/session tablosuna yazar.
+/// Gizli sekmeler ve NewTab dışı tüm sekmeler kalıcıdır.
+pub fn save_session(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let (tabs, active) = {
+        let store = state.tabs.lock().unwrap();
+        (store.tabs.clone(), store.active.clone())
+    };
+    let mut items = Vec::with_capacity(tabs.len());
+    for tab in &tabs {
+        if tab.incognito {
+            continue;
+        }
+        items.push(serde_json::json!({
+            "url": tab.url,
+            "pinned": tab.pinned,
+            "group_id": tab.group_id,
+            "newtab": tab.is_newtab,
+            "active": active.as_deref() == Some(tab.id.as_str()),
+        }));
+    }
+    let json = serde_json::json!({ "tabs": items }).to_string();
+    let db = state.db.lock().unwrap();
+    let _ = db::save_session(&db, &json);
+}
+
+pub fn apply_group(app: &AppHandle, label: &str, group_id: Option<i64>) {
+    let state = app.state::<AppState>();
+    let mut store = state.tabs.lock().unwrap();
+    if let Some(tab) = store.tabs.iter_mut().find(|t| t.id == label) {
+        tab.group_id = group_id;
+    }
+}
+
 // ---------- Snapshot / olaylar ----------
 
 pub fn emit_tabs_changed(app: &AppHandle) {
+    save_session(app);
     let _ = app.emit("tabs-changed", serde_json::json!({}));
 }
 
