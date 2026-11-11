@@ -54,11 +54,8 @@ jobs:
         run: |
           echo "== Hata satırları =="
           grep -nE "^error" build.log | head -n 40
-          echo "== Detay =="
-          grep -nE "error\[|^error:" build.log | head -n 40 | while IFS= read -r line; do
-            echo "::error::$line"
-          done
-          grep -A6 -E "error\[|^error:" build.log | head -n 120 | while IFS= read -r line; do
+          echo "== Cargo özet (son 80 satır) =="
+          tail -n 80 build.log | while IFS= read -r line; do
             echo "::error::$line"
           done
           exit 1
@@ -79,17 +76,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v0.1.0-build.${{ github.run_number }}
-          name: QuantumBrowser v0.1.0 — build ${{ github.run_number }} (Windows x64)
+          tag_name: v0.0.1-build.${{ github.run_number }}
+          name: QuantumBrowser v0.0.1 — build ${{ github.run_number }} (Windows x64)
           body: |
-            ⚛️ **QuantumBrowser v0.1.0** — Tauri v2 + Rust + React ile inşa edildi.
+            ⚛️ **QuantumBrowser v0.0.1** — Tauri v2 + Rust + React ile inşa edildi.
 
             ⚠️ **İmzasız derleme.** Windows, "PC'niz korundu / Windows protected your PC" uyarısı gösterebilir.
             Bu, Microsoft'un bilinmeyen imzasız uygulamalar için standart uyarısıdır:
             **More info → Run anyway** ile çalıştırabilirsiniz.
             İmzalama (resmi sürüm) v1.0 hedefidir.
 
-            Kurulum: `QuantumBrowser_0.1.0_x64-setup.exe` dosyasını çalıştırın.
+            Kurulum: `QuantumBrowser_0.0.1_x64-setup.exe` dosyasını çalıştırın.
             WebView2 Runtime gerektirir (Windows 10/11'de zaten yüklüdür; yüklü değilse kurulumcu indirir).
 
             Bilinen sınırlar: Chrome uzantıları yok (WebView2), bazı sitelerde Google OAuth 403 verebilir,
