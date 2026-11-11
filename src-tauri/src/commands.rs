@@ -2,7 +2,7 @@
 
 use crate::db;
 use crate::tabs::{self, AppState, Snapshot};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 // ---------- Anlık görüntü ----------
 
@@ -140,6 +140,44 @@ pub async fn reopen_closed_tab(app: AppHandle) -> Result<(), String> {
         if entry.pinned {
             let _ = tabs::toggle_pin(&app, &label);
         }
+    }
+    Ok(())
+}
+
+/// Popover penceresini (dekorsuz, şeffaf, en üstte) konumlandırıp gösterir.
+/// Kabuktan çağrılır; popover sayfası "menu-open" olayı ile menü tipini okur.
+#[tauri::command]
+pub fn open_menu_popup(
+    app: AppHandle,
+    menu: String,
+    x: f64,
+    y: f64,
+    tab_id: Option<String>,
+) -> Result<(), String> {
+    let (w, h) = match menu.as_str() {
+        "main" => (260.0_f64, 340.0_f64),
+        "tab" => (260.0_f64, 440.0_f64),
+        _ => (260.0_f64, 340.0_f64),
+    };
+    let Some(win) = app.get_webview_window("popover") else {
+        return Err("popover penceresi bulunamadı".to_string());
+    };
+    let _ = win.set_size(tauri::LogicalSize::<f64>::new(w, h));
+    let _ = win.set_position(tauri::LogicalPosition::<f64>::new(x, y));
+    let _ = win.show();
+    let _ = win.set_focus();
+    let _ = app.emit(
+        "menu-open",
+        serde_json::json!({ "menu": menu, "tabId": tab_id }),
+    );
+    Ok(())
+}
+
+/// Popover penceresini gizler (kapanma / Escape / dışarı tıklama / öğe seçimi).
+#[tauri::command]
+pub fn close_menu_popup(app: AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("popover") {
+        let _ = win.hide();
     }
     Ok(())
 }

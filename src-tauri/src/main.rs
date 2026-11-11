@@ -38,6 +38,24 @@ fn main() {
 
             let handle = app.handle().clone();
 
+            // Popover penceresi (gizli, dekorsuz, her zaman üstte, şeffaf köşe)
+            // Ana pencereden çağrılır; menü öğeleri menü yolunu kullanır.
+            let _popover = tauri::webview::WebviewWindowBuilder::new(
+                &handle,
+                "popover",
+                tauri::WebviewUrl::App("index.html#/popover".into()),
+            )
+            .title("QuantumBrowser Menu")
+            .decorations(false)
+            .inner_size(248.0, 420.0)
+            .always_on_top(true)
+            .transparent(true)
+            .resizable(false)
+            .visible(false)
+            .skip_taskbar(true)
+            .focused(false)
+            .build()?;
+
             // Oturum geri yükleme: önceki çalışmada açık sekmeleri yeniden aç
             let restored = (|| -> Result<usize, Box<dyn std::error::Error>> {
                 let state = handle.state::<AppState>();
@@ -102,6 +120,11 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if window.label() == "popover" {
+                // Popover penceresi için kaçak kapanmayı engelle: kapansa bile gizle
+                let _ = window.hide();
+                return;
+            }
             if let WindowEvent::Resized(_) = event {
                 if window.label() == "shell" {
                     let handle = window.app_handle().clone();
@@ -134,6 +157,8 @@ fn main() {
             commands::set_search_engine,
             commands::set_blocker_enabled,
             commands::set_session_restore,
+            commands::open_menu_popup,
+            commands::close_menu_popup,
             commands::list_bookmarks,
             commands::toggle_bookmark,
             commands::is_bookmarked,

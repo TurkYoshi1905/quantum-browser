@@ -79,6 +79,9 @@ export const toggleDevtools = () => invoke<void>("toggle_devtools");
 export const reopenClosedTab = () => invoke<void>("reopen_closed_tab");
 export const setSessionRestore = (enabled: boolean) =>
   invoke<void>("set_session_restore", { enabled });
+export const openMenuPopup = (menu: string, x: number, y: number, tabId?: string | null) =>
+  invoke<void>("open_menu_popup", { menu, x, y, tabId: tabId ?? null });
+export const closeMenuPopup = () => invoke<void>("close_menu_popup");
 
 // ---------- Gizlilik ----------
 export const clearBrowsingData = () => invoke<void>("clear_browsing_data");
@@ -92,6 +95,10 @@ export const onBlockerCount = (
   listen<{ id: string; count: number }>("blocker-count", (e) => fn(e.payload));
 export const onDownloadsChanged = (fn: () => void): Promise<UnlistenFn> =>
   listen("downloads-changed", fn);
+export const onMenuOpen = (
+  fn: (payload: { menu: string; tabId: string | null }) => void
+): Promise<UnlistenFn> =>
+  listen<{ menu: string; tabId: string | null }>("menu-open", (e) => fn(e.payload));
 
 // ---------- Biçimleyiciler ----------
 export function formatBytes(n: number): string {

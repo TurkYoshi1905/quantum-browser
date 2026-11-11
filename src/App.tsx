@@ -11,7 +11,6 @@ const INTERNAL_ICONS_HINT = ["newtab", "settings", "history", "bookmarks", "down
 export default function App() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [popoverOpen, setPopoverOpen] = useState(false);
   const omniboxRef = useRef<HTMLInputElement>(null);
   const snapshotRef = useRef<Snapshot | null>(null);
   snapshotRef.current = snapshot;
@@ -74,8 +73,8 @@ export default function App() {
     return () => mq.removeEventListener?.("change", apply);
   }, [theme]);
 
-  // Adres çubuğu menüsü açıkken (popover) çocuk webview'ı küçült
-  const overlayOpen = popoverOpen || toast !== null;
+  // İndirme bildirimi açıkken çocuk webview'ı küçült (kabuk önde kalsın)
+  const overlayOpen = toast !== null;
   useEffect(() => {
     api.setOverlayOpen(overlayOpen).catch(() => {});
   }, [overlayOpen]);
@@ -239,7 +238,6 @@ export default function App() {
             api.createGroup(name, color).then((groupId) => api.assignGroup(tabId, groupId)).then(refresh)
           }
           onOpenPanel={openInternal}
-          onMenuChange={setPopoverOpen}
         />
 
         <div className="content">
@@ -261,7 +259,6 @@ export default function App() {
             onNewTab={() => api.newTab()}
             onNewIncognito={() => api.newIncognitoTab()}
             onOpenPanel={openInternal}
-            onMenuChange={setPopoverOpen}
           />
 
           <div className="page-area">

@@ -4,6 +4,7 @@ import "./styles.css";
 import App from "./App";
 import NewTab from "./pages/NewTab";
 import ErrorBoundary from "./components/ErrorBoundary";
+import MenuPopup from "./pages/MenuPopup";
 import {
   SettingsPage,
   HistoryPage,
@@ -23,6 +24,7 @@ const internalPages: Record<string, React.ReactNode> = {
   bookmarks: <BookmarksPage />,
   downloads: <DownloadsPage />,
   profiles: <ProfilesPage />,
+  popover: <MenuPopup />,
 };
 
 const pageToRender = internalPages[route];

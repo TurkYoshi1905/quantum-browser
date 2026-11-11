@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import * as api from "../api";
 import {
   Atom,
   Bookmark,
@@ -31,7 +33,7 @@ const KIND_GLYPHS: Record<string, typeof Settings> = {
   profiles: Users,
 };
 import type { TabMeta, Snapshot } from "../types";
-import ContextMenu, { type MenuEntry } from "./ContextMenu";
+// (KIND_GLYPHS aynı dosyada tanımlı — burada dışarıdan import gerekmez)
 
 export type Panel = "history" | "bookmarks" | "downloads" | "settings" | "profiles";
 
@@ -112,15 +114,8 @@ function initials(name: string): string {
 export default function Sidebar(props: Props) {
   const { snapshot } = props;
   const collapsed = snapshot.sidebar_collapsed;
-  const [menu, setMenu] = useState<{ x: number; y: number; tabId: string } | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
-
-  // Menü açık/kapalı bilgisini üst yönetime bildir (çocuk webview'ı küçültmek için)
-  const { onMenuChange } = props;
-  useEffect(() => {
-    onMenuChange?.(menu !== null);
-  }, [menu, onMenuChange]);
 
   const pinned = snapshot.tabs.filter((t) => t.pinned);
   const rest = snapshot.tabs.filter((t) => !t.pinned);
@@ -134,47 +129,36 @@ export default function Sidebar(props: Props) {
   }
   const ungrouped = rest.filter((t) => t.group_id == null);
 
-  const menuEntries = (tab: TabMeta): MenuEntry[] => {
-    const entries: MenuEntry[] = [
-      { label: "Sekmeyi Çoğalt", icon: Copy, onSelect: () => props.onDuplicate(tab.id) },
-      {
-        label: tab.pinned ? "Sabitlemeyi Kaldır" : "Sekmeyi Sabitle",
-        icon: tab.pinned ? PinOff : Pin,
-        onSelect: () => props.onTogglePin(tab.id),
-      },
-      "separator",
-    ];
-    const groupsWithTabs = snapshot.groups;
-    if (groupsWithTabs.length > 0) {
-      for (const g of groupsWithTabs) {
-        const inThis = tab.group_id === g.id;
-        entries.push({
-          label: inThis ? `"${g.name}" Grubundan Çıkar` : `"${g.name}" Grubuna Ekle`,
-          icon: inThis ? FolderMinus : FolderPlus,
-          onSelect: () => props.onAssignGroup(tab.id, inThis ? null : g.id),
-        });
-      }
-    } else {
-      entries.push({
-        label: "Yeni Grup Oluştur ve Ekle (Genel)",
-        icon: FolderPlus,
-        onSelect: () => props.onCreateGroupAndAssign(tab.id, "Genel", "#0ea5e9"),
-      });
-    }
-    entries.push(
-      "separator",
-      { label: "Diğerlerini Kapat", icon: X, onSelect: () => props.onCloseOthers(tab.id) },
-      { label: "Sekmeyi Kapat", icon: X, danger: true, onSelect: () => props.onClose(tab.id) }
-    );
-    return entries;
-  };
+  // Sekme menüsünü bağımsız popover penceresinde aç (Chrome mantığı)
+  const openTabMenu = useCallback(
+    (e: React.MouseEvent | MouseEvent, tabId: string) => {
+      e.preventDefault?.();
+      e.stopPropagation?.();
+      void (async () => {
+        const btn = e.currentTarget as HTMLElement;
+        const rect = btn.getBoundingClientRect();
+        const pos = await getCurrentWindow().outerPosition();
+        const width = 248;
+        const estimated = 440;
+        let x = pos.x + rect.left;
+        if (x + width > pos.x + window.innerWidth) {
+          x = pos.x + rect.right - width;
+        }
+        let y = pos.y + rect.bottom + 6;
+        if (window.innerHeight - rect.bottom < estimated) {
+          y = pos.y + rect.top - estimated - 6;
+        }
+        api.openMenuPopup("tab", x, y, tabId);
+      })();
+    },
+    []
+  );
 
   const renderTab = (tab: TabMeta) => {
     const active = snapshot.active_id === tab.id;
     const over = overId === tab.id && dragId !== tab.id;
     const displayTitle = tab.is_newtab ? "Yeni Sekme" : tab.title || tab.url;
-    return (
-      <button
+    return (      <button
         key={tab.id}
         className={`tab${active ? " active" : ""}${tab.pinned ? " pinned" : ""}${over ? " drag-over" : ""}`}
         title={displayTitle}
@@ -185,10 +169,7 @@ export default function Sidebar(props: Props) {
             props.onClose(tab.id);
           }
         }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
-        }}
+        onContextMenu={(e) => openTabMenu(e, tab.id)}
         draggable
         onDragStart={(e) => {
           setDragId(tab.id);
@@ -222,11 +203,7 @@ export default function Sidebar(props: Props) {
           role="button"
           aria-label="Sekme seçenekleri"
           title="Seçenekler"
-          onClick={(e) => {
-            e.stopPropagation();
-            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-            setMenu({ x: rect.left, y: rect.bottom + 4, tabId: tab.id });
-          }}
+          onClick={(e) => openTabMenu(e, tab.id)}
         >
           <MoreVertical size={13} strokeWidth={2} />
         </span>
@@ -245,8 +222,6 @@ export default function Sidebar(props: Props) {
       </button>
     );
   };
-
-  const activeMenuTab = menu ? snapshot.tabs.find((t) => t.id === menu.tabId) : null;
 
   return (
     <aside className={`sidebar${collapsed ? " collapsed" : ""}`} aria-label="Sekmeler">
@@ -327,10 +302,6 @@ export default function Sidebar(props: Props) {
           <ChevronDown size={14} strokeWidth={2} />
         </button>
       </div>
-
-      {menu && activeMenuTab && (
-        <ContextMenu x={menu.x} y={menu.y} entries={menuEntries(activeMenuTab)} onClose={() => setMenu(null)} />
-      )}
     </aside>
   );
 }

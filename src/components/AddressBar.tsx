@@ -1,21 +1,18 @@
 import { useEffect, useRef, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   ArrowLeft,
   ArrowRight,
   Atom,
-  Bookmark,
   EyeOff,
-  FileClock,
-  FolderDown,
   Lock,
   MoreVertical,
-  Plus,
   RotateCw,
-  Settings,
   ShieldCheck,
   Star,
   TriangleAlert,
 } from "lucide-react";
+import * as api from "../api";
 import type { Panel } from "./Sidebar";
 
 interface Props {
@@ -36,38 +33,20 @@ interface Props {
   onNewTab: () => void;
   onNewIncognito: () => void;
   onOpenPanel: (panel: Panel) => void;
-  onMenuChange?: (open: boolean) => void;
 }
 
 export default function AddressBar(props: Props) {
-  const { url, inputRef, onMenuChange } = props;
+  const { url, inputRef } = props;
   const [value, setValue] = useState(url);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [spinning, setSpinning] = useState(false);
   const [starPop, setStarPop] = useState(false);
   const [chipPulse, setChipPulse] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const prevBlocked = useRef(props.blockedCount);
 
   // Sekme URL'i değiştiğinde kutuyu güncelle
   useEffect(() => {
     setValue(props.isNewTab ? "" : url);
   }, [url, props.isNewTab]);
-
-  // Menü açık/kapalı bilgisini üst yönetime bildir (çocuk webview'ı küçültmek için)
-  useEffect(() => {
-    onMenuChange?.(menuOpen);
-  }, [menuOpen, onMenuChange]);
-
-  // Menü dışı tıklamada kapat
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
-    };
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, [menuOpen]);
 
   // Engelleme sayacı arttığında kalkan rozetine pulse animasyonu
   useEffect(() => {
@@ -82,6 +61,24 @@ export default function AddressBar(props: Props) {
 
   const secure = url.startsWith("https://");
   const insecure = url.startsWith("http://");
+
+  // Menüyü şeffaf, her zaman üstte bir popover penceresinde aç (Chrome mantığı)
+  const openMainMenu = async (e: React.MouseEvent) => {
+    const btn = e.currentTarget as HTMLElement;
+    const rect = btn.getBoundingClientRect();
+    const pos = await getCurrentWindow().outerPosition();
+    const width = 248;
+    const estimated = 340;
+    let x = pos.x + rect.left;
+    if (x + width > pos.x + window.innerWidth) {
+      x = pos.x + rect.right - width;
+    }
+    let y = pos.y + rect.bottom + 6;
+    if (window.innerHeight - rect.bottom < estimated + 12) {
+      y = pos.y + rect.top - estimated - 6;
+    }
+    api.openMenuPopup("main", x, y);
+  };
 
   const submit = () => {
     props.onNavigate(value.trim());
@@ -186,41 +183,17 @@ export default function AddressBar(props: Props) {
         )}
       </div>
 
-      <div style={{ position: "relative" }} ref={menuRef}>
+      <div>
         <button
           className="nav-btn"
           title="Menü"
           aria-label="Menü"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((v) => !v)}
+          onClick={(e) => {
+            void openMainMenu(e);
+          }}
         >
           <MoreVertical size={17} strokeWidth={2} style={{ color: "var(--text)" }} />
         </button>
-
-        {menuOpen && (
-          <div className="dropdown" role="menu" aria-label="QuantumBrowser menüsü">
-            <button className="dropdown-item" onClick={() => { setMenuOpen(false); props.onNewTab(); }}>
-              <Plus size={15} /> Yeni Sekme <span className="kbd">Ctrl T</span>
-            </button>
-            <button className="dropdown-item" onClick={() => { setMenuOpen(false); props.onNewIncognito(); }}>
-              <EyeOff size={15} /> Gizli Sekme <span className="kbd">Ctrl ⇧ N</span>
-            </button>
-            <div className="dropdown-sep" />
-            <button className="dropdown-item" onClick={() => { setMenuOpen(false); props.onOpenPanel("bookmarks"); }}>
-              <Bookmark size={15} /> Yer İmleri <span className="kbd">Ctrl B</span>
-            </button>
-            <button className="dropdown-item" onClick={() => { setMenuOpen(false); props.onOpenPanel("history"); }}>
-              <FileClock size={15} /> Geçmiş <span className="kbd">Ctrl ⇧ Y</span>
-            </button>
-            <button className="dropdown-item" onClick={() => { setMenuOpen(false); props.onOpenPanel("downloads"); }}>
-              <FolderDown size={15} /> İndirmeler <span className="kbd">Ctrl J</span>
-            </button>
-            <div className="dropdown-sep" />
-            <button className="dropdown-item" onClick={() => { setMenuOpen(false); props.onOpenPanel("settings"); }}>
-              <Settings size={15} /> Ayarlar
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
