@@ -578,13 +578,18 @@ pub fn close_tab(app: &AppHandle, label: &str) -> Result<(), String> {
         let mut store = state.tabs.lock().unwrap();
         was_active = store.active.as_deref() == Some(label);
         // Kapatılan sekmeyi reopen stack'e kaydet (Ctrl+Shift+T)
-        if let Some(tab) = store.tabs.iter().find(|t| t.id == label) {
-            store.last_closed.push(ClosedEntry {
+        let entry = store
+            .tabs
+            .iter()
+            .find(|t| t.id == label)
+            .map(|tab| ClosedEntry {
                 url: tab.url.clone(),
                 incognito: tab.incognito,
                 pinned: tab.pinned,
                 kind: tab.kind.clone(),
             });
+        if let Some(entry) = entry {
+            store.last_closed.push(entry);
             if store.last_closed.len() > 10 {
                 store.last_closed.remove(0);
             }
