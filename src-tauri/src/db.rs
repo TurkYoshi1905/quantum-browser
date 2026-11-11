@@ -75,13 +75,6 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(
         r#"
-        CREATE TRIGGER IF NOT EXISTS history_ad AFTER DELETE ON history BEGIN
-            INSERT INTO history_fts(history_fts, rowid, title, url) VALUES('delete', old.id, old.title, old.url);
-        END;
-        CREATE TRIGGER IF NOT EXISTS bookmarks_ad AFTER DELETE ON bookmarks BEGIN
-            INSERT INTO bookmarks_fts(bookmarks_fts, rowid, title, url) VALUES('delete', old.id, old.title, old.url);
-        END;
-
         CREATE TABLE IF NOT EXISTS profiles (
             id          INTEGER PRIMARY KEY,
             name        TEXT NOT NULL,
@@ -149,6 +142,12 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         END;
         CREATE TRIGGER IF NOT EXISTS bookmarks_ai AFTER INSERT ON bookmarks BEGIN
             INSERT INTO bookmarks_fts(rowid, title, url) VALUES (new.id, new.title, new.url);
+        END;
+        CREATE TRIGGER IF NOT EXISTS history_ad AFTER DELETE ON history BEGIN
+            INSERT INTO history_fts(history_fts, rowid, title, url) VALUES('delete', old.id, old.title, old.url);
+        END;
+        CREATE TRIGGER IF NOT EXISTS bookmarks_ad AFTER DELETE ON bookmarks BEGIN
+            INSERT INTO bookmarks_fts(bookmarks_fts, rowid, title, url) VALUES('delete', old.id, old.title, old.url);
         END;
         "#,
     )?;
