@@ -11,17 +11,41 @@ use tabs::AppState;
 use tauri::{Builder, Manager, WindowEvent};
 
 fn main() {
+    tabs::dbg_log("QuantumBrowser başlatılıyor…");
     Builder::default()
         .setup(|app| {
-            // Veritabanını aç ve durumunu kur
-            let data_dir = app
-                .path()
-                .app_data_dir()
-                .expect("uygulama veri klasörü alınamadı");
-            std::fs::create_dir_all(&data_dir).ok();
-            let conn = db::open(&data_dir.join("quantum.db")).expect("veritabanı açılamadı");
+            // ---------- Veritabanı ----------
+            let data_dir = match app.path().app_data_dir() {
+                Ok(dir) => dir,
+                Err(e) => {
+                    tabs::dbg_log(&format!("HATA: app_data_dir alınamadı: {e}"));
+                    std::env::temp_dir().join("QuantumBrowser")
+                }
+            };
+            let _ = std::fs::create_dir_all(&data_dir);
+            let conn = match db::open(&data_dir.join("quantum.db")) {
+                Ok(c) => c,
+                Err(e) => {
+                    tabs::dbg_log(&format!("HATA: veritabanı açılamadı: {e}"));
+                    return Err(format!("Veritabanı açılamadı: {e}").into());
+                }
+            };
+            tabs::dbg_log("Veritabanı açıldı");
 
-            let profile = db::default_profile(&conn).expect("varsayılan profil bulunamadı");
+            let profile = match db::default_profile(&conn) {
+                Ok(p) => p,
+                Err(e) => {
+                    tabs::dbg_log(&format!("HATA: varsayılan profil okunamadı: {e}"));
+                    db::Profile {
+                        id: 0,
+                        name: "Kişisel".to_string(),
+                        color: "#7c6cf5".to_string(),
+                        store_id: "fallback".to_string(),
+                        is_default: true,
+                    }
+                }
+            };
+
             let sidebar_collapsed = db::get_setting(&conn, "sidebar_collapsed") == "1";
             let blocker_enabled = db::get_setting(&conn, "blocker_enabled") == "1";
 
@@ -37,58 +61,43 @@ fn main() {
             });
 
             let handle = app.handle().clone();
+            tabs::dbg_log("State kuruldu");
 
-            // Popover penceresi (gizli, dekorsuz, her zaman üstte, şeffaf köşe).
-            // AMA: yaratımı başaramazsa uygulama BAŞLATILAMIYOR — bu yüzden hatayı yut ve devam et.
-            let _popover_handle = match tauri::webview::WebviewWindowBuilder::new(
-                &handle,
-                "popover",
-                tauri::WebviewUrl::App("index.html#/popover".into()),
-            )
-            .title("QuantumBrowser Menu")
-            .decorations(false)
-            .inner_size(248.0, 420.0)
-            .always_on_top(true)
-            .transparent(true)
-            .resizable(false)
-            .visible(false)
-            .skip_taskbar(true)
-            .focused(false)
-            .build()
-            {
-                Ok(w) => Some(w),
-                Err(e) => {
-                    tabs::dbg_log(&format!(
-                        "UYARI: popover penceresi yaratılamadı, menü popoversız çalışacak: {e}"
-                    ));
-                    None
-                }
-            };
-            let _popover = _popover_handle; // sessiz bırakma
-
-            // Oturum geri yükleme: önceki çalışmada açık sekmeleri yeniden aç
-            let restored = (|| -> Result<usize, Box<dyn std::error::Error>> {
+            // ---------- Oturum geri yükleme (hata toleranslı) ----------
+            let restored = (|| -> usize {
                 let state = handle.state::<AppState>();
                 let (session_json, restore_enabled) = {
-                    let db = state.db.lock().unwrap();
+                    let db = match state.db.lock() {
+                        Ok(g) => g,
+                        Err(_) => return 0,
+                    };
                     (
                         db::load_session(&db).unwrap_or(None),
                         db::get_setting(&db, "session_restore") == "1",
                     )
                 };
                 if !restore_enabled {
-                    return Ok(0);
+                    return 0;
                 }
                 let Some(json) = session_json else {
-                    return Ok(0);
+                    return 0;
                 };
-                let value: serde_json::Value = serde_json::from_str(&json)?;
+                let value: serde_json::Value = match serde_json::from_str(&json) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        tabs::dbg_log(&format!("Oturum JSON'u bozuk, yok sayılıyor: {e}"));
+                        return 0;
+                    }
+                };
                 let Some(items) = value.get("tabs").and_then(|t| t.as_array()) else {
-                    return Ok(0);
+                    return 0;
                 };
+                tabs::dbg_log(&format!("Oturum bulundu: {} sekme", items.len()));
+
                 let mut count = 0usize;
                 let mut active_label: Option<String> = None;
-                for item in items {
+                // En fazla 10 sekmeyi geri yükle — aşırı yüklemeyi önle
+                for item in items.iter().take(10) {
                     let url = item
                         .get("url")
                         .and_then(|u| u.as_str())
@@ -101,32 +110,44 @@ fn main() {
                         .unwrap_or(false);
                     let group_id = item.get("group_id").and_then(|g| g.as_i64());
                     let url_opt = if is_new { None } else { Some(url) };
-                    let label = tabs::create_tab(&handle, url_opt, false)?;
-                    if pinned {
-                        let _ = tabs::toggle_pin(&handle, &label);
+                    match tabs::create_tab(&handle, url_opt, false) {
+                        Ok(label) => {
+                            if pinned {
+                                let _ = tabs::toggle_pin(&handle, &label);
+                            }
+                            tabs::apply_group(&handle, &label, group_id);
+                            if item
+                                .get("active")
+                                .and_then(|a| a.as_bool())
+                                .unwrap_or(false)
+                            {
+                                active_label = Some(label);
+                            }
+                            count += 1;
+                        }
+                        Err(e) => {
+                            tabs::dbg_log(&format!("Oturum sekmesi açılamadı: {e}"));
+                        }
                     }
-                    tabs::apply_group(&handle, &label, group_id);
-                    if item
-                        .get("active")
-                        .and_then(|a| a.as_bool())
-                        .unwrap_or(false)
-                    {
-                        active_label = Some(label);
-                    }
-                    count += 1;
                 }
                 if let Some(label) = active_label {
                     let _ = tabs::activate_tab(&handle, &label);
                 }
-                Ok(count)
-            })()
-            .unwrap_or(0);
+                count
+            })();
+            tabs::dbg_log(&format!("Oturum geri yüklendi: {restored} sekme"));
 
-            // Oturum boşsa ya da geri yüklenemediyse yeni bir sekme aç
+            // Oturum yoksa yeni NewTab aç — ama başarısız olsa da uygulama çalışır
             if restored == 0 {
-                tabs::create_tab(&handle, None, false)
-                    .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+                match tabs::create_tab(&handle, None, false) {
+                    Ok(_) => tabs::dbg_log("Başlangıç sekmesi açıldı"),
+                    Err(e) => {
+                        tabs::dbg_log(&format!("HATA: başlangıç sekmesi açılamadı: {e}"));
+                        return Err(format!("Sekme oluşturulamadı: {e}").into());
+                    }
+                }
             }
+            tabs::dbg_log("Startup tamamlandı");
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -188,5 +209,9 @@ fn main() {
             commands::clear_browsing_data,
         ])
         .run(tauri::generate_context!())
-        .expect("QuantumBrowser başlatılamadı");
+        .unwrap_or_else(|e| {
+            tabs::dbg_log(&format!("FATAL: QuantumBrowser çalıştırılamadı: {e}"));
+            eprintln!("QuantumBrowser başlatılamadı: {e}");
+            std::process::exit(1);
+        });
 }

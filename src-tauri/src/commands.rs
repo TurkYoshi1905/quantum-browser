@@ -144,6 +144,33 @@ pub async fn reopen_closed_tab(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Popover penceresinin tembel (lazy) yaratımı + konumlandırma + gösterme.
+/// Startup'ta yaratmak yerine ilk menü açılışında yaratılır — bu, uygulamanın
+/// açılır açılmaz çökmesini önler.
+fn ensure_popover(app: &AppHandle) -> Option<tauri::webview::WebviewWindow<tauri::Wry>> {
+    if let Some(win) = app.get_webview_window("popover") {
+        return Some(win);
+    }
+    let handle = app.handle().clone();
+    let win = tauri::webview::WebviewWindowBuilder::new(
+        &handle,
+        "popover",
+        tauri::WebviewUrl::App("index.html#/popover".into()),
+    )
+    .title("QuantumBrowser Menu")
+    .decorations(false)
+    .inner_size(248.0, 420.0)
+    .always_on_top(true)
+    .transparent(true)
+    .resizable(false)
+    .visible(false)
+    .skip_taskbar(true)
+    .focused(false)
+    .build()
+    .ok()?;
+    Some(win)
+}
+
 /// Popover penceresini (dekorsuz, şeffaf, en üstte) konumlandırıp gösterir.
 /// Kabuktan çağrılır; popover sayfası "menu-open" olayı ile menü tipini okur.
 #[tauri::command]
@@ -159,8 +186,8 @@ pub fn open_menu_popup(
         "tab" => (260.0_f64, 440.0_f64),
         _ => (260.0_f64, 340.0_f64),
     };
-    let Some(win) = app.get_webview_window("popover") else {
-        return Err("popover penceresi bulunamadı".to_string());
+    let Some(win) = ensure_popover(&app) else {
+        return Err("popover penceresi yaratılamadı".to_string());
     };
     let _ = win.set_size(tauri::LogicalSize::<f64>::new(w, h));
     let _ = win.set_position(tauri::LogicalPosition::<f64>::new(x, y));
