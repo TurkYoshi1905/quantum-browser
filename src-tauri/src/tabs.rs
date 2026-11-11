@@ -29,6 +29,14 @@ pub struct AppState {
     pub tabs: Mutex<TabsStore>,
 }
 
+#[derive(Clone, Default)]
+pub struct ClosedEntry {
+    pub url: String,
+    pub incognito: bool,
+    pub pinned: bool,
+    pub kind: Option<String>,
+}
+
 #[derive(Default)]
 pub struct TabsStore {
     pub tabs: Vec<TabMeta>,
@@ -39,6 +47,7 @@ pub struct TabsStore {
     pub profile_id: Option<i64>,
     pub profile_store_id: Option<String>,
     pub incognito_store: Option<String>,
+    pub last_closed: Vec<ClosedEntry>,
 }
 
 #[derive(Clone, Serialize)]
@@ -51,6 +60,8 @@ pub struct TabMeta {
     pub incognito: bool,
     pub blocked_count: u32,
     pub is_newtab: bool,
+    /// None = harici site; Some("newtab" | "settings" | "history" | "bookmarks" | "downloads" | "profiles")
+    pub kind: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -67,6 +78,7 @@ pub struct Snapshot {
     pub blocker_enabled: bool,
     pub sidebar_collapsed: bool,
     pub overlay_open: bool,
+    pub session_restore: bool,
 }
 
 // ---------- Yerleşim ----------
@@ -252,18 +264,40 @@ pub fn snapshot(app: &AppHandle) -> Snapshot {
         blocker_enabled,
         sidebar_collapsed: collapsed,
         overlay_open: overlay,
+        session_restore: db::get_setting(&db, "session_restore") == "1",
     }
 }
 
 // ---------- URL normalizasyonu ----------
+
+pub const INTERNAL_KINDS: &[&str] = &[
+    "newtab",
+    "settings",
+    "history",
+    "bookmarks",
+    "downloads",
+    "profiles",
+];
+
+pub fn internal_title(kind: &str) -> &'static str {
+    match kind {
+        "newtab" => "Yeni Sekme",
+        "settings" => "Ayarlar",
+        "history" => "Geçmiş",
+        "bookmarks" => "Yer İmleri",
+        "downloads" => "İndirmeler",
+        "profiles" => "Profiller",
+        _ => "QuantumBrowser",
+    }
+}
 
 pub fn normalize_url(input: &str, search_engine: &str) -> String {
     let q = input.trim();
     if q.is_empty() {
         return String::new(); // newtab'a dön
     }
-    if q.starts_with("quantum://newtab") {
-        return String::new();
+    if q.starts_with("quantum://") {
+        return q.to_string(); // iç sayfa — doğrudan
     }
     if q.starts_with("http://") || q.starts_with("https://") {
         return q.to_string();
@@ -350,19 +384,43 @@ pub fn create_tab(
     let normalized = url_opt.as_ref().map(|u| normalize_url(u, &search_engine));
 
     let label = format!("tab-{}", uuid::Uuid::new_v4().simple());
+    let internal_kind = normalized
+        .as_deref()
+        .and_then(|u| u.strip_prefix("quantum://"))
+        .map(|s| s.to_string());
     let is_newtab = normalized.as_deref().unwrap_or("").is_empty();
+    let internal_page = internal_kind.is_some() || is_newtab;
     dbg_log(&format!(
-        "create_tab başladı label={label} is_newtab={is_newtab} incognito={incognito}"
+        "create_tab başladı label={label} internal={internal_page} incognito={incognito}"
     ));
-    let webview_url = if is_newtab {
-        WebviewUrl::App("index.html#/newtab".into())
+    let (webview_url, default_title): (WebviewUrl, String) = if is_newtab {
+        (
+            WebviewUrl::App("index.html#/newtab".into()),
+            "Yeni Sekme".to_string(),
+        )
+    } else if let Some(kind) = internal_kind.clone() {
+        let route = if INTERNAL_KINDS.contains(&kind.as_str()) {
+            kind.as_str()
+        } else {
+            "newtab"
+        };
+        (
+            WebviewUrl::App(format!("index.html#/{route}").into()),
+            internal_title(route).to_string(),
+        )
     } else {
-        WebviewUrl::External(
+        (
+            WebviewUrl::External(
+                normalized
+                    .clone()
+                    .unwrap()
+                    .parse()
+                    .map_err(|e| format!("geçersiz URL: {e}"))?,
+            ),
             normalized
                 .clone()
-                .unwrap()
-                .parse()
-                .map_err(|e| format!("geçersiz URL: {e}"))?,
+                .map(|u| blocker::domain_of(&u))
+                .unwrap_or_default(),
         )
     };
 
@@ -458,21 +516,40 @@ pub fn create_tab(
 
     // Store'a ekle ve aktifleştir
     {
+        let kind_opt = if is_newtab {
+            Some("newtab".to_string())
+        } else {
+            normalized
+                .as_deref()
+                .and_then(|u| u.strip_prefix("quantum://"))
+                .map(|s| s.to_string())
+        };
+        let title_final = if is_newtab {
+            "Yeni Sekme".to_string()
+        } else if kind_opt.is_some() {
+            default_title
+        } else {
+            normalized
+                .as_deref()
+                .map(|u| blocker::domain_of(u))
+                .unwrap_or_default()
+        };
         let mut store = state.tabs.lock().unwrap();
         store.tabs.push(TabMeta {
             id: label.clone(),
-            url: normalized.unwrap_or_default(),
-            title: if is_newtab {
-                "Yeni Sekme".to_string()
-            } else {
-                let url = url_opt.clone().unwrap_or_default();
-                blocker::domain_of(&url)
-            },
+            url: normalized.unwrap_or_else(|| {
+                kind_opt
+                    .clone()
+                    .map(|k| format!("quantum://{k}"))
+                    .unwrap_or_default()
+            }),
+            title: title_final,
             group_id: None,
             pinned: false,
             incognito,
             blocked_count: 0,
-            is_newtab,
+            is_newtab: kind_opt.as_deref() == Some("newtab"),
+            kind: kind_opt,
         });
     }
     activate_tab(app, &label)?;
@@ -498,8 +575,20 @@ pub fn close_tab(app: &AppHandle, label: &str) -> Result<(), String> {
     let state = app.state::<AppState>();
     let was_active;
     {
-        let store = state.tabs.lock().unwrap();
+        let mut store = state.tabs.lock().unwrap();
         was_active = store.active.as_deref() == Some(label);
+        // Kapatılan sekmeyi reopen stack'e kaydet (Ctrl+Shift+T)
+        if let Some(tab) = store.tabs.iter().find(|t| t.id == label) {
+            store.last_closed.push(ClosedEntry {
+                url: tab.url.clone(),
+                incognito: tab.incognito,
+                pinned: tab.pinned,
+                kind: tab.kind.clone(),
+            });
+            if store.last_closed.len() > 10 {
+                store.last_closed.remove(0);
+            }
+        }
     }
     destroy_webview(app, label);
     let mut store = state.tabs.lock().unwrap();
@@ -627,6 +716,12 @@ pub fn set_blocker_enabled(app: &AppHandle, enabled: bool) {
 }
 
 pub fn navigate_active(app: &AppHandle, url_input: &str) -> Result<(), String> {
+    // İç sayfa navigasyonu: quantum://settings gibi girdiyi yeni sekmede aç
+    let trimmed = url_input.trim();
+    if trimmed.starts_with("quantum://") {
+        return create_tab(app, Some(trimmed.to_string()), false).map(|_| ());
+    }
+
     let search_engine = {
         let state = app.state::<AppState>();
         let db = state.db.lock().unwrap();

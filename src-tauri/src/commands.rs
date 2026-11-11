@@ -122,6 +122,28 @@ pub async fn new_incognito_tab(app: AppHandle) -> Result<(), String> {
     tabs::create_tab(&app, None, true).map(|_| ())
 }
 
+/// Son kapatılan sekmeyi yeniden açar (Ctrl+Shift+T).
+#[tauri::command]
+pub async fn reopen_closed_tab(app: AppHandle) -> Result<(), String> {
+    let entry = {
+        let state = app.state::<AppState>();
+        let mut store = state.tabs.lock().unwrap();
+        store.last_closed.pop()
+    };
+    let Some(entry) = entry else {
+        return Ok(());
+    };
+    if let Some(kind) = entry.kind {
+        let _ = tabs::create_tab(&app, Some(format!("quantum://{kind}")), false)?;
+    } else if !entry.url.is_empty() {
+        let label = tabs::create_tab(&app, Some(entry.url), entry.incognito)?;
+        if entry.pinned {
+            let _ = tabs::toggle_pin(&app, &label);
+        }
+    }
+    Ok(())
+}
+
 // ---------- Sekme grupları ----------
 
 #[tauri::command]
@@ -199,6 +221,13 @@ pub fn set_search_engine(state: State<'_, AppState>, engine: String) -> Result<(
 #[tauri::command]
 pub fn set_blocker_enabled(app: AppHandle, enabled: bool) {
     tabs::set_blocker_enabled(&app, enabled);
+}
+
+#[tauri::command]
+pub fn set_session_restore(state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    db::set_setting(&db, "session_restore", if enabled { "1" } else { "0" })
+        .map_err(|e| e.to_string())
 }
 
 // ---------- Yer imleri ----------

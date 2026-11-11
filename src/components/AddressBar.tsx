@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  Atom,
   Bookmark,
-  BookmarkPlus,
   EyeOff,
   FileClock,
   FolderDown,
@@ -12,9 +12,7 @@ import {
   Plus,
   RotateCw,
   Settings,
-  Shield,
   ShieldCheck,
-  ShieldOff,
   Star,
   TriangleAlert,
 } from "lucide-react";
@@ -27,6 +25,7 @@ interface Props {
   blockedCount: number;
   bookmarked: boolean;
   blockerEnabled: boolean;
+  internalKind?: string | null;
   inputRef: React.RefObject<HTMLInputElement>;
   onNavigate: (input: string) => void;
   onBack: () => void;
@@ -111,7 +110,11 @@ export default function AddressBar(props: Props) {
       </button>
 
       <div className="omnibox" role="combobox" aria-expanded="false" aria-label="Adres çubuğu">
-        {props.isIncognito ? (
+        {props.internalKind ? (
+          <span className="chip-lock" title="QuantumBrowser iç sayfası" style={{ color: "var(--accent-2)" }}>
+            <Atom size={11} strokeWidth={2.2} /> Quantum
+          </span>
+        ) : props.isIncognito ? (
           <span className="chip-lock incognito" title="Gizli mod — geçmiş kaydedilmez">
             <EyeOff size={11} strokeWidth={2.4} /> Gizli
           </span>
@@ -152,31 +155,35 @@ export default function AddressBar(props: Props) {
           aria-label="Adres veya arama"
         />
 
-        <button
-          className={`star-btn${props.bookmarked ? " active" : ""}${starPop ? " star-pop" : ""}`}
-          onClick={() => {
-            props.onToggleBookmark();
-            setStarPop(true);
-            window.setTimeout(() => setStarPop(false), 450);
-          }}
-          title={props.bookmarked ? "Yer imini kaldır" : "Yer imlerine ekle"}
-          aria-label={props.bookmarked ? "Yer imini kaldır" : "Yer imlerine ekle"}
-          aria-pressed={props.bookmarked}
-        >
-          <Star size={16} strokeWidth={2} fill={props.bookmarked ? "currentColor" : "none"} />
-        </button>
+        {!props.internalKind && (
+          <>
+            <button
+              className={`star-btn${props.bookmarked ? " active" : ""}${starPop ? " star-pop" : ""}`}
+              onClick={() => {
+                props.onToggleBookmark();
+                setStarPop(true);
+                window.setTimeout(() => setStarPop(false), 450);
+              }}
+              title={props.bookmarked ? "Yer imini kaldır" : "Yer imlerine ekle"}
+              aria-label={props.bookmarked ? "Yer imini kaldır" : "Yer imlerine ekle"}
+              aria-pressed={props.bookmarked}
+            >
+              <Star size={16} strokeWidth={2} fill={props.bookmarked ? "currentColor" : "none"} />
+            </button>
 
-        <span className="omni-sep" aria-hidden="true" />
+            <span className="omni-sep" aria-hidden="true" />
 
-        <button
-          className={`chip-block${props.blockerEnabled ? "" : " off"}${chipPulse ? " chip-pulse" : ""}`}
-          onClick={props.onToggleBlocker}
-          title={props.blockerEnabled ? "Reklam engelleyici açık — kapatmak için tıklayın" : "Reklam engelleyici kapalı — açmak için tıklayın"}
-          aria-label="Reklam engelleyiciyi aç/kapat"
-        >
-          <ShieldCheck size={11} strokeWidth={2.4} />
-          {props.blockedCount > 0 ? props.blockedCount : props.blockerEnabled ? "Açık" : "Kapalı"}
-        </button>
+            <button
+              className={`chip-block${props.blockerEnabled ? "" : " off"}${chipPulse ? " chip-pulse" : ""}`}
+              onClick={props.onToggleBlocker}
+              title={props.blockerEnabled ? "Reklam engelleyici açık — kapatmak için tıklayın" : "Reklam engelleyici kapalı — açmak için tıklayın"}
+              aria-label="Reklam engelleyiciyi aç/kapat"
+            >
+              <ShieldCheck size={11} strokeWidth={2.4} />
+              {props.blockedCount > 0 ? props.blockedCount : props.blockerEnabled ? "Açık" : "Kapalı"}
+            </button>
+          </>
+        )}
       </div>
 
       <div style={{ position: "relative" }} ref={menuRef}>

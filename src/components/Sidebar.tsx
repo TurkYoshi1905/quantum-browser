@@ -19,7 +19,17 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   MoreVertical,
+  Users,
 } from "lucide-react";
+
+const KIND_GLYPHS: Record<string, typeof Settings> = {
+  newtab: Atom,
+  settings: Settings,
+  history: History,
+  bookmarks: Bookmark,
+  downloads: Download,
+  profiles: Users,
+};
 import type { TabMeta, Snapshot } from "../types";
 import ContextMenu, { type MenuEntry } from "./ContextMenu";
 
@@ -49,7 +59,25 @@ function hueFromString(s: string): number {
   return h % 360;
 }
 
-export function LetterAvatar({ url, isNewTab, incognito }: { url: string; isNewTab: boolean; incognito: boolean }) {
+export function LetterAvatar({
+  url,
+  isNewTab,
+  incognito,
+  kind,
+}: {
+  url: string;
+  isNewTab: boolean;
+  incognito: boolean;
+  kind?: string | null;
+}) {
+  if (kind && KIND_GLYPHS[kind]) {
+    const Icon = KIND_GLYPHS[kind];
+    return (
+      <span className="letter-avatar" style={{ background: "var(--accent-grad)" }}>
+        <Icon size={12} strokeWidth={2} />
+      </span>
+    );
+  }
   if (isNewTab)
     return (
       <span className="letter-avatar" style={{ background: "var(--accent-grad)" }}>
@@ -182,7 +210,7 @@ export default function Sidebar(props: Props) {
         }}
       >
         {tab.pinned && <span className="pin-strip" aria-hidden="true" />}
-        <LetterAvatar url={tab.url} isNewTab={tab.is_newtab} incognito={tab.incognito} />
+        <LetterAvatar url={tab.url} isNewTab={tab.is_newtab} incognito={tab.incognito} kind={tab.kind} />
         <span className="tab-title">{displayTitle}</span>
         {tab.blocked_count > 0 && (
           <span className="badge" title={`${tab.blocked_count} reklam/izleyici engellendi`}>

@@ -3,21 +3,15 @@ import { Check } from "lucide-react";
 import * as api from "./api";
 import type { Snapshot } from "./types";
 import TitleBar from "./components/TitleBar";
-import Sidebar, { type Panel } from "./components/Sidebar";
+import Sidebar from "./components/Sidebar";
 import AddressBar from "./components/AddressBar";
-import {
-  BookmarksPanel,
-  DownloadsPanel,
-  HistoryPanel,
-  ProfilesPanel,
-  SettingsPanel,
-} from "./components/Panels";
+
+const INTERNAL_ICONS_HINT = ["newtab", "settings", "history", "bookmarks", "downloads", "profiles"];
 
 export default function App() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [panel, setPanel] = useState<Panel | null>(null);
-  const [bookmarked, setBookmarked] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const omniboxRef = useRef<HTMLInputElement>(null);
   const snapshotRef = useRef<Snapshot | null>(null);
   snapshotRef.current = snapshot;
@@ -80,10 +74,8 @@ export default function App() {
     return () => mq.removeEventListener?.("change", apply);
   }, [theme]);
 
-  // Panel/popover/bildirim açıkken çocuk webview'ları küçült ki kabuğun
-  // açılır menüleri sayfanın önünde kalsın (üstte native HWND çizilir)
-  const [popoverOpen, setPopoverOpen] = useState(false);
-  const overlayOpen = panel !== null || popoverOpen || toast !== null;
+  // Adres çubuğu menüsü açıkken (popover) çocuk webview'ı küçült
+  const overlayOpen = popoverOpen || toast !== null;
   useEffect(() => {
     api.setOverlayOpen(overlayOpen).catch(() => {});
   }, [overlayOpen]);
@@ -92,41 +84,26 @@ export default function App() {
   const activeUrl = activeTab?.url ?? "";
   const isActiveNewTab = activeTab?.is_newtab ?? true;
   const isActiveIncognito = activeTab?.incognito ?? false;
+  const internalKind = activeTab?.kind ?? null;
 
-  // Yer imi yıldızı durumu
+  const openInternal = useCallback((kind: string) => {
+    api.newTab(`quantum://${kind}`);
+  }, []);
+
+  // Kitap yıldızı durumu (dahili sayfalarda gizli)
+  const [bookmarked, setBookmarked] = useState(false);
   useEffect(() => {
-    if (!activeUrl || isActiveNewTab) {
+    if (!activeUrl || isActiveNewTab || internalKind) {
       setBookmarked(false);
       return;
     }
     api.isBookmarked(activeUrl).then(setBookmarked).catch(() => setBookmarked(false));
-  }, [activeUrl, isActiveNewTab]);
+  }, [activeUrl, isActiveNewTab, internalKind]);
 
-  const closePanel = useCallback(() => setPanel(null), []);
-
-  const cycleTab = useCallback(
-    (direction: 1 | -1) => {
-      const snap = snapshotRef.current;
-      if (!snap || snap.tabs.length === 0) return;
-      const idx = snap.tabs.findIndex((t) => t.id === snap.active_id);
-      const next = (idx + direction + snap.tabs.length) % snap.tabs.length;
-      api.activateTab(snap.tabs[next].id);
-    },
-    []
-  );
-
-  const activateNth = useCallback((n: number) => {
-    const snap = snapshotRef.current;
-    if (!snap) return;
-    const target = n === 9 ? snap.tabs[snap.tabs.length - 1] : snap.tabs[n - 1];
-    if (target) api.activateTab(target.id);
-  }, []);
-
-  // Klavye kısayolları (kabuk odaktayken; sayfa odaktayken v0.2'de WebView2
-  // AcceleratorKeyPressed kancası devreye girecek)
+  // Klavye kısayolları (kabuk odaktayken)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // F12 — geliştirici panelini aç/kapat (kabuğun dışında, sayfa bağlamında)
+      // F12 — geliştirici panelini aç/kapat
       if (e.key === "F12" || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "i")) {
         e.preventDefault();
         api.toggleDevtools();
@@ -138,26 +115,20 @@ export default function App() {
       const shift = e.shiftKey;
       const key = e.key.toLowerCase();
 
-      if (key === "escape") {
-        setPanel(null);
-        return;
-      }
+      if (key === "escape") return;
       if (key === "f5") {
         e.preventDefault();
         api.reload();
         return;
       }
-      if (alt && key === "arrowleft") {
-        e.preventDefault();
-        api.goBack();
-        return;
-      }
-      if (alt && key === "arrowright") {
-        e.preventDefault();
-        api.goForward();
-        return;
-      }
+      if (alt && key === "arrowleft") return api.goBack();
+      if (alt && key === "arrowright") return api.goForward();
       if (!mod) return;
+
+      const run = (fn: () => void) => {
+        e.preventDefault();
+        fn();
+      };
 
       if (key === "tab") {
         e.preventDefault();
@@ -170,11 +141,8 @@ export default function App() {
         return;
       }
 
-      const run = (fn: () => void) => {
-        e.preventDefault();
-        fn();
-      };
       if (key === "t" && !shift) return run(() => api.newTab());
+      if (key === "t" && shift) return run(() => api.reopenClosedTab());
       if (key === "n" && shift) return run(() => api.newIncognitoTab());
       if (key === "w") {
         const id = snapshotRef.current?.active_id;
@@ -183,33 +151,44 @@ export default function App() {
       }
       if (key === "l" || key === "k") return run(() => omniboxRef.current?.focus());
       if (key === "r") return run(() => api.reload());
-      if (key === "b" && !shift) return run(() => setPanel("bookmarks"));
-      if (key === "j") return run(() => setPanel("downloads"));
-      if (key === "," ) return run(() => setPanel("settings"));
-      if (key === "y" && shift) return run(() => setPanel("history"));
-      if (key === "delete" && shift) return run(() => setPanel("settings"));
+      if (key === "b" && !shift) return run(() => openInternal("bookmarks"));
+      if (key === "j") return run(() => openInternal("downloads"));
+      if (key === ",") return run(() => openInternal("settings"));
+      if (key === "y" && shift) return run(() => openInternal("history"));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activateNth, cycleTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openInternal]);
+
+  const cycleTab = useCallback((direction: 1 | -1) => {
+    const snap = snapshotRef.current;
+    if (!snap || snap.tabs.length === 0) return;
+    const idx = snap.tabs.findIndex((t) => t.id === snap.active_id);
+    const next = (idx + direction + snap.tabs.length) % snap.tabs.length;
+    api.activateTab(snap.tabs[next].id);
+  }, []);
+
+  const activateNth = useCallback((n: number) => {
+    const snap = snapshotRef.current;
+    if (!snap) return;
+    const target = n === 9 ? snap.tabs[snap.tabs.length - 1] : snap.tabs[n - 1];
+    if (target) api.activateTab(target.id);
+  }, []);
 
   const handleNavigate = useCallback((input: string) => {
     const trimmed = input.trim();
     if (trimmed) api.navigate(trimmed);
   }, []);
 
-  const handlePanelNavigate = useCallback((url: string) => {
-    setPanel(null);
-    api.navigate(url);
-  }, []);
-
   const handleToggleBookmark = useCallback(async () => {
     const snap = snapshotRef.current;
     const tab = snap?.tabs.find((t) => t.id === snap.active_id);
-    if (!tab || tab.is_newtab || !tab.url) return;
+    if (!tab || tab.is_newtab || !tab.url || tab.kind) return;
     try {
       const now = await api.toggleBookmark(tab.url, tab.title || tab.url);
-      setBookmarked(now);
+      // yer iminden başka UI yok; snapshot yenileyelim
+      api.getSnapshot().then(setSnapshot);
     } catch {
       /* sessiz */
     }
@@ -221,22 +200,6 @@ export default function App() {
     api.setBlockerEnabled(!snap.blocker_enabled);
   }, []);
 
-  const handleSwitchProfile = useCallback(async (profileId: number) => {
-    try {
-      await api.switchProfile(profileId);
-      setPanel(null);
-      await api.newTab();
-      refresh();
-    } catch {
-      /* sessiz */
-    }
-  }, [refresh]);
-
-  const handleCreateGroupAndAssign = useCallback((tabId: string, name: string, color: string) => {
-    api.createGroup(name, color).then((groupId) => api.assignGroup(tabId, groupId)).then(refresh);
-  }, [refresh]);
-
-  // ---------- Yükleniyor ekranı ----------
   if (!snapshot) {
     return (
       <div className="shell" style={{ gridTemplateRows: "1fr" }}>
@@ -272,8 +235,10 @@ export default function App() {
           onMoveTab={(fromId, toId) => api.moveTab(fromId, toId)}
           onToggleGroup={(groupId) => api.toggleGroup(groupId).then(refresh)}
           onAssignGroup={(tabId, groupId) => api.assignGroup(tabId, groupId).then(refresh)}
-          onCreateGroupAndAssign={handleCreateGroupAndAssign}
-          onOpenPanel={setPanel}
+          onCreateGroupAndAssign={(tabId, name, color) =>
+            api.createGroup(name, color).then((groupId) => api.assignGroup(tabId, groupId)).then(refresh)
+          }
+          onOpenPanel={openInternal}
           onMenuChange={setPopoverOpen}
         />
 
@@ -282,6 +247,7 @@ export default function App() {
             url={activeUrl}
             isIncognito={isActiveIncognito}
             isNewTab={isActiveNewTab}
+            internalKind={internalKind}
             blockedCount={activeTab?.blocked_count ?? 0}
             bookmarked={bookmarked}
             blockerEnabled={snapshot.blocker_enabled}
@@ -294,36 +260,14 @@ export default function App() {
             onToggleBlocker={handleToggleBlocker}
             onNewTab={() => api.newTab()}
             onNewIncognito={() => api.newIncognitoTab()}
-            onOpenPanel={setPanel}
+            onOpenPanel={openInternal}
             onMenuChange={setPopoverOpen}
           />
 
           <div className="page-area">
             <div className="page-empty" aria-hidden="true">
-              {!panel && <span style={{ opacity: 0.35 }}>QuantumBrowser</span>}
+              <span style={{ opacity: 0.35 }}>QuantumBrowser</span>
             </div>
-
-            {panel === "history" && <HistoryPanel onClose={closePanel} onNavigate={handlePanelNavigate} />}
-            {panel === "bookmarks" && <BookmarksPanel onClose={closePanel} onNavigate={handlePanelNavigate} />}
-            {panel === "downloads" && <DownloadsPanel onClose={closePanel} />}
-            {panel === "settings" && (
-              <SettingsPanel
-                snapshot={snapshot}
-                onClose={closePanel}
-                onSetTheme={(t) => api.setTheme(t).then(refresh)}
-                onSetEngine={(e) => api.setSearchEngine(e).then(refresh)}
-                onToggleBlocker={(v) => api.setBlockerEnabled(v)}
-                onClearData={() =>
-                  api.clearBrowsingData().then(() => {
-                    setToast(null);
-                    setPanel(null);
-                  })
-                }
-              />
-            )}
-            {panel === "profiles" && (
-              <ProfilesPanel snapshot={snapshot} onClose={closePanel} onRefresh={refresh} onSwitch={handleSwitchProfile} />
-            )}
           </div>
         </div>
       </div>

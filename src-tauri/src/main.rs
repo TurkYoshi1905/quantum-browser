@@ -36,10 +36,69 @@ fn main() {
                 tabs: Mutex::new(store),
             });
 
-            // İlk sekme: NewTab sayfası
             let handle = app.handle().clone();
-            tabs::create_tab(&handle, None, false)
-                .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+
+            // Oturum geri yükleme: önceki çalışmada açık sekmeleri yeniden aç
+            let restored = (|| -> Result<usize, Box<dyn std::error::Error>> {
+                let state = handle.state::<AppState>();
+                let (session_json, restore_enabled) = {
+                    let db = state.db.lock().unwrap();
+                    (
+                        db::load_session(&db).unwrap_or(None),
+                        db::get_setting(&db, "session_restore") == "1",
+                    )
+                };
+                if !restore_enabled {
+                    return Ok(0);
+                }
+                let Some(json) = session_json else {
+                    return Ok(0);
+                };
+                let value: serde_json::Value = serde_json::from_str(&json)?;
+                let Some(items) = value.get("tabs").and_then(|t| t.as_array()) else {
+                    return Ok(0);
+                };
+                let mut count = 0usize;
+                let mut active_label: Option<String> = None;
+                for item in items {
+                    let url = item
+                        .get("url")
+                        .and_then(|u| u.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let is_new = item.get("newtab").and_then(|n| n.as_bool()).unwrap_or(true);
+                    let pinned = item
+                        .get("pinned")
+                        .and_then(|p| p.as_bool())
+                        .unwrap_or(false);
+                    let group_id = item.get("group_id").and_then(|g| g.as_i64());
+                    let url_opt = if is_new { None } else { Some(url) };
+                    let label = tabs::create_tab(&handle, url_opt, false)?;
+                    if pinned {
+                        let _ = tabs::toggle_pin(&handle, &label);
+                    }
+                    tabs::apply_group(&handle, &label, group_id);
+                    if item
+                        .get("active")
+                        .and_then(|a| a.as_bool())
+                        .unwrap_or(false)
+                    {
+                        active_label = Some(label);
+                    }
+                    count += 1;
+                }
+                if let Some(label) = active_label {
+                    let _ = tabs::activate_tab(&handle, &label);
+                }
+                Ok(count)
+            })()
+            .unwrap_or(0);
+
+            // Oturum boşsa ya da geri yüklenemediyse yeni bir sekme aç
+            if restored == 0 {
+                tabs::create_tab(&handle, None, false)
+                    .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -64,6 +123,7 @@ fn main() {
             commands::go_forward,
             commands::reload,
             commands::new_incognito_tab,
+            commands::reopen_closed_tab,
             commands::create_group,
             commands::toggle_group,
             commands::delete_group,
@@ -73,6 +133,7 @@ fn main() {
             commands::set_theme,
             commands::set_search_engine,
             commands::set_blocker_enabled,
+            commands::set_session_restore,
             commands::list_bookmarks,
             commands::toggle_bookmark,
             commands::is_bookmarked,

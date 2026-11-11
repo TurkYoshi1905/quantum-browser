@@ -395,6 +395,7 @@ export function SettingsPanel({
   onSetEngine,
   onToggleBlocker,
   onClearData,
+  onSetSessionRestore,
 }: {
   snapshot: Snapshot;
   onClose: () => void;
@@ -402,6 +403,7 @@ export function SettingsPanel({
   onSetEngine: (engine: string) => void;
   onToggleBlocker: (enabled: boolean) => void;
   onClearData: () => void;
+  onSetSessionRestore: (enabled: boolean) => void;
 }) {
   return (
     <PanelShell title="Ayarlar" icon={Settings2} onClose={onClose}>
@@ -460,6 +462,18 @@ export function SettingsPanel({
               checked={snapshot.blocker_enabled}
               onChange={(e) => onToggleBlocker(e.target.checked)}
               aria-label="Reklam engelleyiciyi aç/kapat"
+            />
+            <span className="track" />
+          </label>
+        </div>
+        <div className="card-row" style={{ marginTop: 12 }}>
+          <span style={{ fontWeight: 600 }}>Kaldığım yerden aç</span>
+          <label className="switch" title="Uygulama kapanırken açık sekmeleri aç">
+            <input
+              type="checkbox"
+              checked={snapshot.session_restore}
+              onChange={(e) => onSetSessionRestore(e.target.checked)}
+              aria-label="Kaldığım yerden aç"
             />
             <span className="track" />
           </label>

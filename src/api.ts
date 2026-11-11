@@ -76,6 +76,9 @@ export const renameProfile = (profileId: number, name: string) =>
 export const deleteProfile = (profileId: number) =>
   invoke<void>("delete_profile", { profileId });
 export const toggleDevtools = () => invoke<void>("toggle_devtools");
+export const reopenClosedTab = () => invoke<void>("reopen_closed_tab");
+export const setSessionRestore = (enabled: boolean) =>
+  invoke<void>("set_session_restore", { enabled });
 
 // ---------- Gizlilik ----------
 export const clearBrowsingData = () => invoke<void>("clear_browsing_data");

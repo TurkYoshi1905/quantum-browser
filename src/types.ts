@@ -9,6 +9,7 @@ export interface TabMeta {
   incognito: boolean;
   blocked_count: number;
   is_newtab: boolean;
+  kind: string | null; // null = harici site; "newtab" | "settings" | ...
 }
 
 export interface TabGroup {
@@ -41,6 +42,7 @@ export interface Snapshot {
   blocker_enabled: boolean;
   sidebar_collapsed: boolean;
   overlay_open: boolean;
+  session_restore: boolean;
 }
 
 export interface Bookmark {

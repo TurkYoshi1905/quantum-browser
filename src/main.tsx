@@ -4,13 +4,31 @@ import "./styles.css";
 import App from "./App";
 import NewTab from "./pages/NewTab";
 import ErrorBoundary from "./components/ErrorBoundary";
+import {
+  SettingsPage,
+  HistoryPage,
+  BookmarksPage,
+  DownloadsPage,
+  ProfilesPage,
+} from "./pages/Internal";
 
-// Çocuk webview'lar "index.html#/newtab" ile yüklenir → sadece NewTab sayfasını çiz.
+// Çocuk webview'lar "index.html#/<rota>" ile yüklenir → ilgili iç sayfa çizilir.
 // Kabuk penceresi hash'siz yüklenir → tam QuantumBrowser kabuğu.
-const isNewTabPage = window.location.hash.startsWith("#/newtab");
+const route = window.location.hash.replace(/^#\/?/, "").split(/[?#]/)[0];
+
+const internalPages: Record<string, React.ReactNode> = {
+  newtab: <NewTab />,
+  settings: <SettingsPage />,
+  history: <HistoryPage />,
+  bookmarks: <BookmarksPage />,
+  downloads: <DownloadsPage />,
+  profiles: <ProfilesPage />,
+};
+
+const pageToRender = internalPages[route];
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    {isNewTabPage ? <NewTab /> : <ErrorBoundary><App /></ErrorBoundary>}
+    {pageToRender ?? <ErrorBoundary><App /></ErrorBoundary>}
   </React.StrictMode>
 );
