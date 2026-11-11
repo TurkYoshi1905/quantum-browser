@@ -34,7 +34,7 @@
     "active": true,
     "targets": ["nsis"],
     "publisher": "QuantumBrowser",
-    "copyright": "© 2026 QuantumBrowser Projesi — MIT Lisansı",
+    "copyright": "© 2026 QuantumBrowser Projesi — AGPL-3.0 Lisansı",
     "shortDescription": "Arc tarzı, gizlilik saygılı Windows tarayıcı",
     "longDescription": "QuantumBrowser — Microsoft WebView2 (Chromium) tabanlı, Rust çekirdekli, Arc tarzı ferah arayüze sahip, reklam ve izleyici engelleyicili, yerleşik gizlilik özellikleri olan masaüstü tarayıcı.",
     "icon": [
@@ -51,7 +51,8 @@
       "nsis": {
         "installMode": "currentUser",
         "languages": ["Turkish", "English"],
-        "displayLanguageSelector": true
+        "displayLanguageSelector": true,
+        "installerIcon": "./icons/icon.ico"
       }
     }
   }

@@ -151,9 +151,8 @@ fn ensure_popover(app: &AppHandle) -> Option<tauri::webview::WebviewWindow<tauri
     if let Some(win) = app.get_webview_window("popover") {
         return Some(win);
     }
-    let handle = app.handle().clone();
     let win = tauri::webview::WebviewWindowBuilder::new(
-        &handle,
+        app,
         "popover",
         tauri::WebviewUrl::App("index.html#/popover".into()),
     )
