@@ -1,5 +1,4 @@
-import { useState, useCallback } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+﻿import { useState, useCallback } from "react";
 import * as api from "../api";
 import {
   Atom,
@@ -33,7 +32,7 @@ const KIND_GLYPHS: Record<string, typeof Settings> = {
   profiles: Users,
 };
 import type { TabMeta, Snapshot } from "../types";
-// (KIND_GLYPHS aynı dosyada tanımlı — burada dışarıdan import gerekmez)
+// (KIND_GLYPHS aynÄ± dosyada tanÄ±mlÄ± â€” burada dÄ±ÅŸarÄ±dan import gerekmez)
 
 export type Panel = "history" | "bookmarks" | "downloads" | "settings" | "profiles";
 
@@ -129,27 +128,26 @@ export default function Sidebar(props: Props) {
   }
   const ungrouped = rest.filter((t) => t.group_id == null);
 
-  // Sekme menüsünü bağımsız popover penceresinde aç (Chrome mantığı)
+  // Sekme menÃ¼sÃ¼nÃ¼ baÄŸÄ±msÄ±z popover penceresinde aÃ§ (Chrome mantÄ±ÄŸÄ±).
+  // Konum: window.screenX/screenY + buton dikdÃ¶rtgeni (hepsi CSS px).
   const openTabMenu = useCallback(
     (e: React.MouseEvent | MouseEvent, tabId: string) => {
       e.preventDefault?.();
       e.stopPropagation?.();
-      void (async () => {
-        const btn = e.currentTarget as HTMLElement;
-        const rect = btn.getBoundingClientRect();
-        const pos = await getCurrentWindow().outerPosition();
-        const width = 248;
-        const estimated = 440;
-        let x = pos.x + rect.left;
-        if (x + width > pos.x + window.innerWidth) {
-          x = pos.x + rect.right - width;
-        }
-        let y = pos.y + rect.bottom + 6;
-        if (window.innerHeight - rect.bottom < estimated) {
-          y = pos.y + rect.top - estimated - 6;
-        }
-        api.openMenuPopup("tab", x, y, tabId);
-      })();
+      const btn = e.currentTarget as HTMLElement;
+      const rect = btn.getBoundingClientRect();
+      const width = 260;
+      const estimated = 440;
+      let x = window.screenX + rect.left;
+      if (x + width > window.screenX + window.innerWidth) {
+        x = window.screenX + rect.right - width;
+      }
+      let y = window.screenY + rect.bottom + 6;
+      if (y + estimated > window.screenY + window.innerHeight - 12) {
+        y = window.screenY + rect.top - estimated - 6;
+        if (y < window.screenY) y = window.screenY + window.innerHeight - estimated - 12;
+      }
+      api.openMenuPopup("tab", x, y, tabId);
     },
     []
   );
@@ -201,8 +199,8 @@ export default function Sidebar(props: Props) {
         <span
           className="tab-more"
           role="button"
-          aria-label="Sekme seçenekleri"
-          title="Seçenekler"
+          aria-label="Sekme seÃ§enekleri"
+          title="SeÃ§enekler"
           onClick={(e) => openTabMenu(e, tab.id)}
         >
           <MoreVertical size={13} strokeWidth={2} />
@@ -230,8 +228,8 @@ export default function Sidebar(props: Props) {
         <button
           className="icon-btn"
           onClick={props.onToggleSidebar}
-          title={collapsed ? "Şeridi Genişlet" : "Şeridi Daralt"}
-          aria-label={collapsed ? "Şeridi genişlet" : "Şeridi daralt"}
+          title={collapsed ? "Åeridi GeniÅŸlet" : "Åeridi Daralt"}
+          aria-label={collapsed ? "Åeridi geniÅŸlet" : "Åeridi daralt"}
         >
           {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
         </button>
@@ -249,7 +247,7 @@ export default function Sidebar(props: Props) {
           const tabs = grouped.get(group.id) ?? [];
           return (
             <div key={group.id}>
-              <button className="group-chip" onClick={() => props.onToggleGroup(group.id)} title={group.collapsed ? "Grubu aç" : "Grubu daralt"}>
+              <button className="group-chip" onClick={() => props.onToggleGroup(group.id)} title={group.collapsed ? "Grubu aÃ§" : "Grubu daralt"}>
                 <span className="group-dot" style={{ background: group.color }} />
                 <span className="group-name">{group.name}</span>
                 <span className="group-count">{tabs.length}</span>
@@ -261,7 +259,7 @@ export default function Sidebar(props: Props) {
         })}
 
         {ungrouped.length > 0 && snapshot.groups.length > 0 && pinned.length === 0 && (
-          <div className="section-title">Diğerleri</div>
+          <div className="section-title">DiÄŸerleri</div>
         )}
         {ungrouped.map(renderTab)}
       </div>
@@ -276,13 +274,13 @@ export default function Sidebar(props: Props) {
           <button className="icon-btn" onClick={props.onNewIncognito} title="Gizli Sekme (Ctrl+Shift+N)" aria-label="Gizli sekme">
             <EyeOff size={16} strokeWidth={2} />
           </button>
-          <button className="icon-btn" onClick={() => props.onOpenPanel("downloads")} title="İndirmeler (Ctrl+J)" aria-label="İndirmeler">
+          <button className="icon-btn" onClick={() => props.onOpenPanel("downloads")} title="Ä°ndirmeler (Ctrl+J)" aria-label="Ä°ndirmeler">
             <Download size={16} strokeWidth={2} />
           </button>
-          <button className="icon-btn" onClick={() => props.onOpenPanel("bookmarks")} title="Yer İmleri (Ctrl+B)" aria-label="Yer imleri">
+          <button className="icon-btn" onClick={() => props.onOpenPanel("bookmarks")} title="Yer Ä°mleri (Ctrl+B)" aria-label="Yer imleri">
             <Bookmark size={16} strokeWidth={2} />
           </button>
-          <button className="icon-btn" onClick={() => props.onOpenPanel("history")} title="Geçmiş (Ctrl+Shift+Y)" aria-label="Geçmiş">
+          <button className="icon-btn" onClick={() => props.onOpenPanel("history")} title="GeÃ§miÅŸ (Ctrl+Shift+Y)" aria-label="GeÃ§miÅŸ">
             <History size={16} strokeWidth={2} />
           </button>
           <span style={{ flex: 1 }} />
@@ -291,13 +289,13 @@ export default function Sidebar(props: Props) {
           </button>
         </div>
 
-        <button className="profile-foot" onClick={() => props.onOpenPanel("profiles")} title="Profili değiştir">
+        <button className="profile-foot" onClick={() => props.onOpenPanel("profiles")} title="Profili deÄŸiÅŸtir">
           <span className="avatar" style={{ background: snapshot.profile_color }}>
             {initials(snapshot.profile_name)}
           </span>
           <span className="profile-foot-meta">
             <span className="profile-foot-name">{snapshot.profile_name}</span>
-            <span className="profile-foot-hint">Profili değiştir</span>
+            <span className="profile-foot-hint">Profili deÄŸiÅŸtir</span>
           </span>
           <ChevronDown size={14} strokeWidth={2} />
         </button>

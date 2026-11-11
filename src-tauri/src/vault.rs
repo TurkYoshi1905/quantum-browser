@@ -1,12 +1,13 @@
-//! QuantumBrowser — Şifre K Kasası (master parola korumalı)
-//! Aralık kapalı: metin açıklamalar belleğin dışında hiçbir zaman saklanmaz.
+//! QuantumBrowser â€” Åifre K KasasÄ± (master parola korumalÄ±)
+//! AralÄ±k kapalÄ±: metin aÃ§Ä±klamalar belleÄŸin dÄ±ÅŸÄ±nda hiÃ§bir zaman saklanmaz.
 
-use aes_gcm::aead::{Aead, KeyInit, OsRng};
+use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use argon2::password_hash::rand_core::RngCore;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
 use argon2::{Algorithm, Argon2, Params, Version};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
+use rand::thread_rng;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -30,7 +31,7 @@ struct StoredItem {
     note: String,
 }
 
-/// Kasanın şema migrate'i (ayrı dosya: vault.db)
+/// KasanÄ±n ÅŸema migrate'i (ayrÄ± dosya: vault.db)
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(
         r#"
@@ -72,7 +73,7 @@ fn derive_key(password: &str, salt_b64: &str, out: &mut [u8; 32]) -> Result<(), 
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
     argon2
         .hash_password_into(password.as_bytes(), &salt, out)
-        .map_err(|e| format!("anahtar türetilemedi: {e}"))
+        .map_err(|e| format!("anahtar tÃ¼retilemedi: {e}"))
 }
 
 fn master_hash_ok(password: &str, phc: &str) -> bool {
@@ -86,7 +87,6 @@ fn master_hash_ok(password: &str, phc: &str) -> bool {
 
 pub struct VaultStatus {
     pub has_master_password: bool,
-    pub unlocked: bool,
 }
 
 pub fn status(conn: &Connection) -> rusqlite::Result<VaultStatus> {
@@ -94,7 +94,6 @@ pub fn status(conn: &Connection) -> rusqlite::Result<VaultStatus> {
     let phc: Option<String> = stmt.query_row([], |r| r.get(0)).optional()?;
     Ok(VaultStatus {
         has_master_password: phc.is_some(),
-        unlocked: false, // caller overrides based on session state
     })
 }
 
@@ -105,17 +104,17 @@ pub fn unlocked(state: &AppState) -> bool {
 pub fn set_master_password(conn: &Connection, password: &str) -> Result<(), String> {
     let clean = password.trim();
     if clean.len() < 4 {
-        return Err("Ana şifre en az 4 karakter olmalı".to_string());
+        return Err("Ana ÅŸifre en az 4 karakter olmalÄ±".to_string());
     }
     let mut salt_bytes = [0u8; 16];
-    OsRng.fill_bytes(&mut salt_bytes);
+    thread_rng().fill_bytes(&mut salt_bytes);
     let salt = B64.encode(salt_bytes);
     let protein = format!("{salt}");
     let salt_string = SaltString::encode_b64(salt_bytes.as_slice())
-        .map_err(|e| format!("tuz kodlanamadı: {e}"))?;
+        .map_err(|e| format!("tuz kodlanamadÄ±: {e}"))?;
     let hash = Argon2::default()
         .hash_password(clean.as_bytes(), &salt_string)
-        .map_err(|e| format!("hash üretilemedi: {e}"))?;
+        .map_err(|e| format!("hash Ã¼retilemedi: {e}"))?;
     conn.execute(
         "INSERT INTO vault_meta (key, value) VALUES ('master_hash', ?1)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -142,7 +141,7 @@ pub fn unlock(conn: &Connection, state: &AppState, password: &str) -> Result<boo
         .optional()
         .map_err(|e| e.to_string())?;
     let Some(phc) = phc else {
-        return Err("Kasa henüz oluşturulmadı — önce bir ana şifre belirleyin".to_string());
+        return Err("Kasa henÃ¼z oluÅŸturulmadÄ± â€” Ã¶nce bir ana ÅŸifre belirleyin".to_string());
     };
     if !master_hash_ok(clean, &phc) {
         return Ok(false);
@@ -169,8 +168,8 @@ fn decrypt_row(cipher: &Aes256Gcm, nonce: &[u8], ciphertext: &[u8]) -> Result<St
     let nonce = Nonce::from_slice(nonce);
     let plain = cipher
         .decrypt(nonce, ciphertext)
-        .map_err(|e| format!("kayıt çözülemedi: {e}"))?;
-    serde_json::from_slice(&plain).map_err(|e| format!("kayıt bozuk: {e}"))
+        .map_err(|e| format!("kayÄ±t Ã§Ã¶zÃ¼lemedi: {e}"))?;
+    serde_json::from_slice(&plain).map_err(|e| format!("kayÄ±t bozuk: {e}"))
 }
 
 pub fn list(conn: &Connection, state: &AppState) -> Result<Vec<VaultItem>, String> {
@@ -228,10 +227,10 @@ pub fn add(
     let h = host.trim().to_string();
     let u = username.trim().to_string();
     if h.is_empty() || password.is_empty() {
-        return Err("Site ve şifre zorunludur".to_string());
+        return Err("Site ve ÅŸifre zorunludur".to_string());
     }
     let mut nonce_bytes = [0u8; 12];
-    OsRng.fill_bytes(&mut nonce_bytes);
+    thread_rng().fill_bytes(&mut nonce_bytes);
     let item = StoredItem {
         host: h,
         username: u,
@@ -243,7 +242,7 @@ pub fn add(
     let cipher = locked.as_ref().ok_or_else(|| "Kasa kilitli".to_string())?;
     let ciphertext = cipher
         .encrypt(Nonce::from_slice(&nonce_bytes), plain.as_slice())
-        .map_err(|e| format!("şifrelenemedi: {e}"))?;
+        .map_err(|e| format!("ÅŸifrelenemedi: {e}"))?;
     conn.execute(
         "INSERT INTO vault_items (nonce, ciphertext) VALUES (?1, ?2)",
         params![&nonce_bytes[..], &ciphertext[..]],
@@ -276,7 +275,7 @@ pub fn update(
     note: &str,
 ) -> Result<(), String> {
     let mut nonce_bytes = [0u8; 12];
-    OsRng.fill_bytes(&mut nonce_bytes);
+    thread_rng().fill_bytes(&mut nonce_bytes);
     let item = StoredItem {
         host: host.trim().to_string(),
         username: username.trim().to_string(),
@@ -288,7 +287,7 @@ pub fn update(
     let cipher = locked.as_ref().ok_or_else(|| "Kasa kilitli".to_string())?;
     let ciphertext = cipher
         .encrypt(Nonce::from_slice(&nonce_bytes), plain.as_slice())
-        .map_err(|e| format!("şifrelenemedi: {e}"))?;
+        .map_err(|e| format!("ÅŸifrelenemedi: {e}"))?;
     conn.execute(
         "UPDATE vault_items SET nonce = ?1, ciphertext = ?2, updated_at = datetime('now','localtime') WHERE id = ?3",
         params![&nonce_bytes[..], &ciphertext[..], id],
@@ -353,7 +352,7 @@ pub fn export(conn: &Connection, state: &AppState) -> Result<String, String> {
 
 pub fn import(conn: &Connection, state: &AppState, contents: &str) -> Result<usize, String> {
     let parsed: Vec<serde_json::Value> =
-        serde_json::from_str(contents).map_err(|e| format!("Yedek dosyası bozuk: {e}"))?;
+        serde_json::from_str(contents).map_err(|e| format!("Yedek dosyasÄ± bozuk: {e}"))?;
     let mut count = 0usize;
     for item in parsed {
         let host = item

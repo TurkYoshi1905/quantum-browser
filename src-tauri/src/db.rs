@@ -169,7 +169,7 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         ("blocker_enabled", "1"),
         ("sidebar_collapsed", "0"),
         ("block_insecure", "1"),
-        ("accent", "violet"),
+        ("accent", "mor"),
         ("session_restore", "1"),
     ] {
         conn.execute(
