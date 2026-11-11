@@ -162,7 +162,7 @@ fn set_webview_rect(wv: &Webview, pos: LogicalPosition<f64>, size: LogicalSize<f
 
 /// Hafif tanılama kaydı — donma olursa `%LOCALAPPDATA%/com.quantum.browser/rust.log`undan bakılır.
 #[cfg(not(test))]
-fn dbg_log(msg: &str) {
+pub(crate) fn dbg_log(msg: &str) {
     use std::io::Write;
     if let Ok(dir) = std::env::var("LOCALAPPDATA")
         .map(|p| std::path::PathBuf::from(p).join("com.quantum.browser"))

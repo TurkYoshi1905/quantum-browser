@@ -83,9 +83,15 @@ export default function NewTab() {
     <main className="newtab">
       <div className="newtab-wordmark" aria-hidden="true">
         <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-          <ellipse cx="16" cy="16" rx="12.5" ry="4.6" transform="rotate(-30 16 16)" stroke="#22d3ee" strokeWidth="2.6" strokeLinecap="round" />
-          <ellipse cx="16" cy="16" rx="12.5" ry="4.6" transform="rotate(55 16 16)" stroke="#a78bfa" strokeWidth="2.6" strokeLinecap="round" />
-          <circle cx="16" cy="16" r="4.4" fill="#67e8f9" />
+          <defs>
+            <linearGradient id="qbMark" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#22d3ee" />
+              <stop offset="0.5" stopColor="#818cf8" />
+              <stop offset="1" stopColor="#a78bfa" />
+            </linearGradient>
+          </defs>
+          <circle cx="13" cy="13" r="10" stroke="url(#qbMark)" strokeWidth="3.5" />
+          <path d="M19.5 19.5 L28 28" stroke="url(#qbMark)" strokeWidth="3.5" strokeLinecap="round" />
         </svg>
         <span>QuantumBrowser</span>
       </div>

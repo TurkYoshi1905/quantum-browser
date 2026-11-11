@@ -13,20 +13,16 @@ export default function TitleBar({ profileName, title }: Props) {
   return (
     <header className="titlebar" data-tauri-drag-region="">
       <div className="logo" aria-hidden="true">
-        <svg className="logo-mark" viewBox="0 0 32 32" fill="none">
+        <svg className="logo-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
           <defs>
-            <linearGradient id="qbA" x1="0" y1="0" x2="1" y2="1">
+            <linearGradient id="qbStroke" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0" stopColor="#22d3ee" />
-              <stop offset="1" stopColor="#818cf8" />
-            </linearGradient>
-            <linearGradient id="qbB" x1="1" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#c084fc" />
-              <stop offset="1" stopColor="#8b5cf6" />
+              <stop offset="0.5" stopColor="#818cf8" />
+              <stop offset="1" stopColor="#a78bfa" />
             </linearGradient>
           </defs>
-          <ellipse cx="16" cy="16" rx="12.5" ry="4.6" transform="rotate(-30 16 16)" stroke="url(#qbA)" strokeWidth="2.6" strokeLinecap="round" />
-          <ellipse cx="16" cy="16" rx="12.5" ry="4.6" transform="rotate(55 16 16)" stroke="url(#qbB)" strokeWidth="2.6" strokeLinecap="round" />
-          <circle cx="16" cy="16" r="4.2" fill="#67e8f9" />
+          <circle cx="13" cy="13" r="10" stroke="url(#qbStroke)" strokeWidth="3.4" />
+          <path d="M19.5 19.5 L28 28" stroke="url(#qbStroke)" strokeWidth="3.4" strokeLinecap="round" />
         </svg>
         <span>QuantumBrowser</span>
         <span className="profile-chip">{profileName}</span>

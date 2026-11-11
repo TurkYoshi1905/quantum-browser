@@ -38,9 +38,9 @@ fn main() {
 
             let handle = app.handle().clone();
 
-            // Popover penceresi (gizli, dekorsuz, her zaman üstte, şeffaf köşe)
-            // Ana pencereden çağrılır; menü öğeleri menü yolunu kullanır.
-            let _popover = tauri::webview::WebviewWindowBuilder::new(
+            // Popover penceresi (gizli, dekorsuz, her zaman üstte, şeffaf köşe).
+            // AMA: yaratımı başaramazsa uygulama BAŞLATILAMIYOR — bu yüzden hatayı yut ve devam et.
+            let _popover_handle = match tauri::webview::WebviewWindowBuilder::new(
                 &handle,
                 "popover",
                 tauri::WebviewUrl::App("index.html#/popover".into()),
@@ -54,7 +54,17 @@ fn main() {
             .visible(false)
             .skip_taskbar(true)
             .focused(false)
-            .build()?;
+            .build()
+            {
+                Ok(w) => Some(w),
+                Err(e) => {
+                    tabs::dbg_log(&format!(
+                        "UYARI: popover penceresi yaratılamadı, menü popoversız çalışacak: {e}"
+                    ));
+                    None
+                }
+            };
+            let _popover = _popover_handle; // sessiz bırakma
 
             // Oturum geri yükleme: önceki çalışmada açık sekmeleri yeniden aç
             let restored = (|| -> Result<usize, Box<dyn std::error::Error>> {

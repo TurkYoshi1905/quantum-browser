@@ -204,9 +204,15 @@ export default function App() {
       <div className="shell" style={{ gridTemplateRows: "1fr" }}>
         <div className="newtab" style={{ minHeight: "100vh" }}>
           <svg width="72" height="72" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-            <ellipse cx="16" cy="16" rx="12.5" ry="4.6" transform="rotate(-30 16 16)" stroke="#22d3ee" strokeWidth="2.2" strokeLinecap="round" />
-            <ellipse cx="16" cy="16" rx="12.5" ry="4.6" transform="rotate(55 16 16)" stroke="#a78bfa" strokeWidth="2.2" strokeLinecap="round" />
-            <circle cx="16" cy="16" r="4.4" fill="#67e8f9" />
+            <defs>
+              <linearGradient id="qbSplash" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stopColor="#22d3ee" />
+                <stop offset="0.5" stopColor="#818cf8" />
+                <stop offset="1" stopColor="#a78bfa" />
+              </linearGradient>
+            </defs>
+            <circle cx="13" cy="13" r="10" stroke="url(#qbSplash)" strokeWidth="2.4" />
+            <path d="M19.5 19.5 L28 28" stroke="url(#qbSplash)" strokeWidth="2.4" strokeLinecap="round" />
           </svg>
           <div className="greeting" style={{ marginTop: 10 }}>QuantumBrowser yükleniyor…</div>
         </div>
