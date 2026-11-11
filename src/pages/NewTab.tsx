@@ -82,17 +82,7 @@ export default function NewTab() {
   return (
     <main className="newtab">
       <div className="newtab-wordmark" aria-hidden="true">
-        <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-          <defs>
-            <linearGradient id="qbMark" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#22d3ee" />
-              <stop offset="0.5" stopColor="#818cf8" />
-              <stop offset="1" stopColor="#a78bfa" />
-            </linearGradient>
-          </defs>
-          <circle cx="13" cy="13" r="10" stroke="url(#qbMark)" strokeWidth="3.5" />
-          <path d="M19.5 19.5 L28 28" stroke="url(#qbMark)" strokeWidth="3.5" strokeLinecap="round" />
-        </svg>
+        <img className="wordmark-img" src="/quantum-browser.png" alt="" width={22} height={22} />
         <span>QuantumBrowser</span>
       </div>
 
