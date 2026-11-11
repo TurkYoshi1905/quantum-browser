@@ -79,6 +79,31 @@ export const toggleDevtools = () => invoke<void>("toggle_devtools");
 export const reopenClosedTab = () => invoke<void>("reopen_closed_tab");
 export const setSessionRestore = (enabled: boolean) =>
   invoke<void>("set_session_restore", { enabled });
+export const setAccent = (accent: string) =>
+  invoke<void>("set_accent", { accent });
+export const setBlockInsecure = (enabled: boolean) =>
+  invoke<void>("set_block_insecure", { enabled });
+export const vaultStatus = () =>
+  invoke<{ hasMasterPassword: boolean; unlocked: boolean }>("vault_status");
+export const vaultSetMasterPassword = (password: string) =>
+  invoke<void>("vault_set_master_password", { password });
+export const vaultUnlock = (password: string) =>
+  invoke<boolean>("vault_unlock", { password });
+export const vaultLock = () => invoke<void>("vault_lock");
+export const vaultList = () => invoke<Array<{ id: number; host: string; username: string; created_at: string; updated_at: string }>>("vault_list");
+export const vaultFindForHost = (host: string) =>
+  invoke<Array<{ id: number; host: string; username: string }>>("vault_find_for_host", { host });
+export const vaultAdd = (host: string, username: string, password: string, note?: string) =>
+  invoke<void>("vault_add", { host, username, password, note: note ?? null });
+export const vaultUpdate = (id: number, host: string, username: string, password: string, note?: string) =>
+  invoke<void>("vault_update", { id, host, username, password, note: note ?? null });
+export const vaultGetPassword = (id: number) =>
+  invoke<string>("vault_get_password", { id });
+export const vaultDelete = (id: number) => invoke<void>("vault_delete", { id });
+export const vaultGeneratePassword = () => invoke<string>("vault_generate_password");
+export const vaultExport = () => invoke<string>("vault_export");
+export const vaultImport = (contents: string) =>
+  invoke<number>("vault_import", { contents });
 export const openMenuPopup = (menu: string, x: number, y: number, tabId?: string | null) =>
   invoke<void>("open_menu_popup", { menu, x, y, tabId: tabId ?? null });
 export const closeMenuPopup = () => invoke<void>("close_menu_popup");

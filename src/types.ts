@@ -43,6 +43,8 @@ export interface Snapshot {
   sidebar_collapsed: boolean;
   overlay_open: boolean;
   session_restore: boolean;
+  accent: string;
+  block_insecure: boolean;
 }
 
 export interface Bookmark {

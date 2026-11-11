@@ -1,10 +1,10 @@
-[package]
+﻿[package]
 name = "quantum-browser"
 version = "0.0.1"
-description = "QuantumBrowser — WebView2 tabanlı, Arc tarzı, gizlilik saygılı Windows tarayıcı"
+description = "QuantumBrowser - WebView2 tabanli, Arc tarzi, gizlilik saygili Windows tarayicisi"
 authors = ["QuantumBrowser"]
 license = "AGPL-3.0-only"
-repository = "https://github.com/quantumbrowser/quantum-browser"
+repository = "https://github.com/TurkYoshi1905/quantum-browser"
 edition = "2021"
 rust-version = "1.90"
 default-run = "quantum-browser"
@@ -16,6 +16,10 @@ serde_json = "1"
 rusqlite = { version = "0.41.1", features = ["bundled"] }
 uuid = { version = "1.29.2", features = ["v4", "serde"] }
 chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
+argon2 = "0.5"
+aes-gcm = "0.10"
+rand = "0.8"
+base64 = "0.22"
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39.1"

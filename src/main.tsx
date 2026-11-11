@@ -5,6 +5,8 @@ import App from "./App";
 import NewTab from "./pages/NewTab";
 import ErrorBoundary from "./components/ErrorBoundary";
 import MenuPopup from "./pages/MenuPopup";
+import Blocked from "./pages/Blocked";
+import Vault from "./pages/Vault";
 import {
   SettingsPage,
   HistoryPage,
@@ -25,6 +27,8 @@ const internalPages: Record<string, React.ReactNode> = {
   downloads: <DownloadsPage />,
   profiles: <ProfilesPage />,
   popover: <MenuPopup />,
+  vault: <Vault />,
+  blocked: <Blocked />,
 };
 
 const pageToRender = internalPages[route];

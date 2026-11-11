@@ -2,6 +2,7 @@
 
 use crate::db;
 use crate::tabs::{self, AppState, Snapshot};
+use crate::vault;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 // ---------- Anlık görüntü ----------
@@ -271,9 +272,42 @@ pub fn set_sidebar_collapsed(app: AppHandle, collapsed: bool) {
 // ---------- Tema & ayarlar ----------
 
 #[tauri::command]
-pub fn set_theme(state: State<'_, AppState>, theme: String) -> Result<(), String> {
-    let db = state.db.lock().unwrap();
-    db::set_setting(&db, "theme", &theme).map_err(|e| e.to_string())
+pub fn set_theme(app: AppHandle, state: State<'_, AppState>, theme: String) -> Result<(), String> {
+    {
+        let db = state.db.lock().unwrap();
+        db::set_setting(&db, "theme", &theme).map_err(|e| e.to_string())?;
+    }
+    tabs::emit_tabs_changed(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_accent(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    accent: String,
+) -> Result<(), String> {
+    {
+        let db = state.db.lock().unwrap();
+        db::set_setting(&db, "accent", &accent).map_err(|e| e.to_string())?;
+    }
+    tabs::emit_tabs_changed(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_block_insecure(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> Result<(), String> {
+    {
+        let db = state.db.lock().unwrap();
+        db::set_setting(&db, "block_insecure", if enabled { "1" } else { "0" })
+            .map_err(|e| e.to_string())?;
+    }
+    tabs::emit_tabs_changed(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -409,13 +443,23 @@ pub fn list_profiles(state: State<'_, AppState>) -> Result<Vec<db::Profile>, Str
 }
 
 #[tauri::command]
-pub fn add_profile(state: State<'_, AppState>, name: String, color: String) -> Result<i64, String> {
-    let db = state.db.lock().unwrap();
-    let clean = name.trim();
-    if clean.is_empty() {
-        return Err("profil adı boş olamaz".to_string());
-    }
-    db::add_profile(&db, clean, &color).map_err(|e| e.to_string())
+pub fn add_profile(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+    color: String,
+) -> Result<i64, String> {
+    let id = {
+        let db = state.db.lock().unwrap();
+        let clean = name.trim();
+        if clean.is_empty() {
+            return Err("profil adı boş olamaz".to_string());
+        }
+        db::add_profile(&db, clean, &color).map_err(|e| e.to_string())?
+    };
+    // Yeni profille boş arayüz kalmasın — NewTab aç
+    let _ = tabs::create_tab(&app, None, false);
+    Ok(id)
 }
 
 #[tauri::command]
@@ -474,6 +518,8 @@ pub fn switch_profile(app: AppHandle, profile_id: i64) -> Result<(), String> {
         store.profile_id = Some(profile.id);
         store.profile_store_id = Some(profile.store_id);
     }
+    // Boş arayüz kalmasın — yeni oturum için NewTab aç
+    let _ = tabs::create_tab(&app, None, false);
     Ok(())
 }
 
@@ -491,6 +537,138 @@ pub fn toggle_devtools(app: AppHandle) -> Result<(), String> {
         let _ = wv.open_devtools();
     }
     Ok(())
+}
+
+// ---------- Şifre Kasası (quantum://vault) ----------
+
+#[tauri::command]
+pub fn vault_status(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let conn = state.vault_conn.lock().unwrap();
+    let s = vault::status(&conn).map_err(|e| e.to_string())?;
+    Ok(serde_json::json!({
+        "hasMasterPassword": s.has_master_password,
+        "unlocked": vault::unlocked(&state),
+    }))
+}
+
+#[tauri::command]
+pub fn vault_set_master_password(
+    state: State<'_, AppState>,
+    password: String,
+) -> Result<(), String> {
+    let conn = state.vault_conn.lock().unwrap();
+    vault::set_master_password(&conn, &password)
+}
+
+#[tauri::command]
+pub fn vault_unlock(state: State<'_, AppState>, password: String) -> Result<bool, String> {
+    let conn = state.vault_conn.lock().unwrap();
+    vault::unlock(&conn, &state, &password)
+}
+
+#[tauri::command]
+pub fn vault_lock(state: State<'_, AppState>) {
+    vault::lock(&state);
+}
+
+#[tauri::command]
+pub fn vault_list(state: State<'_, AppState>) -> Result<Vec<serde_json::Value>, String> {
+    let conn = state.vault_conn.lock().unwrap();
+    let items = vault::list(&conn, &state)?;
+    Ok(items
+        .into_iter()
+        .map(|i| {
+            serde_json::json!({
+                "id": i.id,
+                "host": i.host,
+                "username": i.username,
+                "created_at": i.created_at,
+                "updated_at": i.updated_at,
+            })
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn vault_find_for_host(
+    state: State<'_, AppState>,
+    host: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    let conn = state.vault_conn.lock().unwrap();
+    let items = vault::find_for_host(&conn, &state, &host)?;
+    Ok(items
+        .into_iter()
+        .map(|i| serde_json::json!({ "id": i.id, "host": i.host, "username": i.username }))
+        .collect())
+}
+
+#[tauri::command]
+pub fn vault_add(
+    state: State<'_, AppState>,
+    host: String,
+    username: String,
+    password: String,
+    note: Option<String>,
+) -> Result<(), String> {
+    let conn = state.vault_conn.lock().unwrap();
+    vault::add(
+        &conn,
+        &state,
+        &host,
+        &username,
+        &password,
+        note.as_deref().unwrap_or(""),
+    )
+}
+
+#[tauri::command]
+pub fn vault_update(
+    state: State<'_, AppState>,
+    id: i64,
+    host: String,
+    username: String,
+    password: String,
+    note: Option<String>,
+) -> Result<(), String> {
+    let conn = state.vault_conn.lock().unwrap();
+    vault::update(
+        &conn,
+        &state,
+        id,
+        &host,
+        &username,
+        &password,
+        note.as_deref().unwrap_or(""),
+    )
+}
+
+#[tauri::command]
+pub fn vault_get_password(state: State<'_, AppState>, id: i64) -> Result<String, String> {
+    let conn = state.vault_conn.lock().unwrap();
+    vault::get_password(&conn, &state, id)
+}
+
+#[tauri::command]
+pub fn vault_delete(state: State<'_, AppState>, id: i64) -> Result<(), String> {
+    let conn = state.vault_conn.lock().unwrap();
+    vault::delete(&conn, &state, id)
+}
+
+#[tauri::command]
+pub fn vault_generate_password() -> Result<String, String> {
+    Ok(vault::generate_password(18))
+}
+
+#[tauri::command]
+pub fn vault_export(state: State<'_, AppState>) -> Result<String, String> {
+    let conn = state.vault_conn.lock().unwrap();
+    vault::export(&conn, &state)
+}
+
+#[tauri::command]
+pub fn vault_import(state: State<'_, AppState>, contents: String) -> Result<usize, String> {
+    let conn = state.vault_conn.lock().unwrap();
+    vault::import(&conn, &state, &contents)
 }
 
 // ---------- Veri temizleme (gizlilik) ----------

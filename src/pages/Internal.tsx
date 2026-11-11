@@ -2,6 +2,7 @@
 // Ana kabuk dışında, çocuk webview'da bağımsız çalışır; snapshot'ı çeker.
 import { useCallback, useEffect, useState } from "react";
 import type { Snapshot } from "../types";
+import { applyRootTheme } from "../utils/theme";
 import * as api from "../api";
 import {
   BookmarksPanel,
@@ -21,10 +22,18 @@ function useInternalPage() {
   useEffect(() => {
     refresh();
     const un = api.onTabsChanged(refresh);
-    return () => {
-      un.then((f) => f());
-    };
+    return () => { un.then((f) => f()); };
   }, [refresh]);
+
+  // Hesap, tema, accent ve block_insecure anlık senkronu
+  useEffect(() => {
+    if (!snap) return;
+    applyRootTheme(snap.theme || "light", snap.accent || "mor");
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => applyRootTheme(snap.theme || "light", snap.accent || "mor");
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [snap?.theme, snap?.accent]);
 
   const closeSelf = useCallback(() => {
     api.getSnapshot().then((s) => {
@@ -47,6 +56,9 @@ export function SettingsPage() {
       onToggleBlocker={(v) => api.setBlockerEnabled(v)}
       onClearData={() => api.clearBrowsingData().then(refresh)}
       onSetSessionRestore={(v) => api.setSessionRestore(v).then(refresh)}
+      onSetAccent={(a) => api.setAccent(a).then(refresh)}
+      onSetBlockInsecure={(v) => api.setBlockInsecure(v).then(refresh)}
+      onOpenVault={() => api.newTab("quantum://vault")}
     />
   );
 }

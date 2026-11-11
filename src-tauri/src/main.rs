@@ -5,6 +5,7 @@ mod commands;
 mod db;
 mod downloads;
 mod tabs;
+mod vault;
 
 use std::sync::Mutex;
 use tabs::AppState;
@@ -32,6 +33,15 @@ fn main() {
             };
             tabs::dbg_log("Veritabanı açıldı");
 
+            let vault_conn = match vault::open_vault(&data_dir.join("vault.db")) {
+                Ok(c) => c,
+                Err(e) => {
+                    tabs::dbg_log(&format!("HATA: vault.db açılamadı: {e}"));
+                    return Err(format!("Kasa veritabanı açılamadı: {e}").into());
+                }
+            };
+            tabs::dbg_log("Şifre kasası açıldı");
+
             let profile = match db::default_profile(&conn) {
                 Ok(p) => p,
                 Err(e) => {
@@ -58,6 +68,8 @@ fn main() {
             app.manage(AppState {
                 db: Mutex::new(conn),
                 tabs: Mutex::new(store),
+                vault: Mutex::new(None),
+                vault_conn: Mutex::new(vault_conn),
             });
 
             let handle = app.handle().clone();
@@ -185,11 +197,26 @@ fn main() {
             commands::set_overlay_open,
             commands::set_sidebar_collapsed,
             commands::set_theme,
+            commands::set_accent,
+            commands::set_block_insecure,
             commands::set_search_engine,
             commands::set_blocker_enabled,
             commands::set_session_restore,
             commands::open_menu_popup,
             commands::close_menu_popup,
+            commands::vault_status,
+            commands::vault_set_master_password,
+            commands::vault_unlock,
+            commands::vault_lock,
+            commands::vault_list,
+            commands::vault_find_for_host,
+            commands::vault_add,
+            commands::vault_update,
+            commands::vault_get_password,
+            commands::vault_delete,
+            commands::vault_generate_password,
+            commands::vault_export,
+            commands::vault_import,
             commands::list_bookmarks,
             commands::toggle_bookmark,
             commands::is_bookmarked,

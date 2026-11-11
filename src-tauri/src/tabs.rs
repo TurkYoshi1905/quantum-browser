@@ -27,6 +27,8 @@ pub fn current_profile_id(state: &AppState) -> Option<i64> {
 pub struct AppState {
     pub db: Mutex<Connection>,
     pub tabs: Mutex<TabsStore>,
+    pub vault: Mutex<Option<aes_gcm::Aes256Gcm>>,
+    pub vault_conn: Mutex<Connection>,
 }
 
 #[derive(Clone, Default)]
@@ -79,6 +81,8 @@ pub struct Snapshot {
     pub sidebar_collapsed: bool,
     pub overlay_open: bool,
     pub session_restore: bool,
+    pub accent: String,
+    pub block_insecure: bool,
 }
 
 // ---------- Yerleşim ----------
@@ -265,6 +269,8 @@ pub fn snapshot(app: &AppHandle) -> Snapshot {
         sidebar_collapsed: collapsed,
         overlay_open: overlay,
         session_restore: db::get_setting(&db, "session_restore") == "1",
+        accent: db::get_setting(&db, "accent"),
+        block_insecure: db::get_setting(&db, "block_insecure") == "1",
     }
 }
 
@@ -277,6 +283,8 @@ pub const INTERNAL_KINDS: &[&str] = &[
     "bookmarks",
     "downloads",
     "profiles",
+    "vault",
+    "blocked",
 ];
 
 pub fn internal_title(kind: &str) -> &'static str {
@@ -287,6 +295,8 @@ pub fn internal_title(kind: &str) -> &'static str {
         "bookmarks" => "Yer İmleri",
         "downloads" => "İndirmeler",
         "profiles" => "Profiller",
+        "vault" => "Quantum Şifre Kasası",
+        "blocked" => "Site Engellendi",
         _ => "QuantumBrowser",
     }
 }
@@ -607,8 +617,29 @@ pub fn close_tab(app: &AppHandle, label: &str) -> Result<(), String> {
         store.active = next;
     }
     drop(store);
+    // Hiç sekme kalmadıysa otomatik NewTab aç (Chrome davranışı)
+    let needs_newtab = {
+        let state = app.state::<AppState>();
+        let store = state.tabs.lock().unwrap();
+        store.tabs.is_empty()
+    };
+    if needs_newtab {
+        let _ = create_tab(app, None, false);
+    }
     relayout(app)?;
     emit_tabs_changed(app);
+    Ok(())
+}
+
+pub fn activate_first_tab(app: &AppHandle) -> Result<(), String> {
+    let label = {
+        let state = app.state::<AppState>();
+        let store = state.tabs.lock().unwrap();
+        store.tabs.first().map(|t| t.id.clone())
+    };
+    if let Some(l) = label {
+        activate_tab(app, &l)?;
+    }
     Ok(())
 }
 
@@ -723,21 +754,49 @@ pub fn set_blocker_enabled(app: &AppHandle, enabled: bool) {
 pub fn navigate_active(app: &AppHandle, url_input: &str) -> Result<(), String> {
     // İç sayfa navigasyonu: quantum://settings gibi girdiyi yeni sekmede aç
     let trimmed = url_input.trim();
-    if trimmed.starts_with("quantum://") {
+    if (trimmed.starts_with("quantum://")) {
         return create_tab(app, Some(trimmed.to_string()), false).map(|_| ());
     }
+    // "Yine de devam et" butonu: qb_bypass=1 → engellemeyi atla (tek seferlik)
+    let (bypass, cleaned) = match trimmed.find("qb_bypass=1") {
+        Some(pos) => {
+            let mut s = trimmed.clone();
+            s.replace_range(pos..pos + "qb_bypass=1".len(), "");
+            let s = s.replace("?&", "?").replace("&&", "&");
+            let s = s.trim_end_matches('&').trim_end_matches('?').to_string();
+            (true, s)
+        }
+        None => (false, trimmed.to_string()),
+    };
+    let trimmed = cleaned.as_str();
 
     let search_engine = {
         let state = app.state::<AppState>();
         let db = state.db.lock().unwrap();
         db::get_setting(&db, "search_engine")
     };
-    let normalized = normalize_url(url_input, &search_engine);
+    let normalized = normalize_url(trimmed, &search_engine);
     let url = if normalized.is_empty() {
         return Ok(());
     } else {
         normalized
     };
+    // HTTPS Zorunluluğu: HTTP sayfaları blokla (bypass yoksa)
+    let block_insecure = {
+        let state = app.state::<AppState>();
+        let db = state.db.lock().unwrap();
+        db::get_setting(&db, "block_insecure") == "1"
+    };
+    let url = if !bypass && block_insecure && url.starts_with("http://") {
+        let encoded = url
+            .replace('&', "%26")
+            .replace('?', "%3F")
+            .replace('=', "%3D");
+        format!("quantum://blocked?url={encoded}")
+    } else {
+        url
+    };
+
     let active = {
         let state = app.state::<AppState>();
         let store = state.tabs.lock().unwrap();

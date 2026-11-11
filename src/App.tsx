@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import * as api from "./api";
 import type { Snapshot } from "./types";
+import { applyRootTheme } from "./utils/theme";
 import TitleBar from "./components/TitleBar";
 import Sidebar from "./components/Sidebar";
 import AddressBar from "./components/AddressBar";
@@ -60,18 +61,15 @@ export default function App() {
 
   // Tema uygula (sistem = OS tercihi)
   const theme = snapshot?.theme;
+  const accent = snapshot?.accent;
   useEffect(() => {
     if (!theme) return;
-    const apply = () => {
-      const dark =
-        theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-      document.documentElement.dataset.theme = dark ? "dark" : "light";
-    };
-    apply();
+    applyRootTheme(theme, accent || "mor");
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    mq.addEventListener?.("change", apply);
-    return () => mq.removeEventListener?.("change", apply);
-  }, [theme]);
+    const onChange = () => applyRootTheme(theme, accent || "mor");
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [theme, accent]);
 
   // İndirme bildirimi açıkken çocuk webview'ı küçült (kabuk önde kalsın)
   const overlayOpen = toast !== null;

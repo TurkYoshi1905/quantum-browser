@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { MoonStar, Search, Sun, Sunrise } from "lucide-react";
+import { MoonStar, Search, Sun, Sunrise, Sparkles } from "lucide-react";
 import { getSnapshot } from "../api";
+import { applyRootTheme } from "../utils/theme";
 
 const SEARCH_TEMPLATES: Record<string, string> = {
   duckduckgo: "https://duckduckgo.com/?q=",
@@ -9,15 +10,10 @@ const SEARCH_TEMPLATES: Record<string, string> = {
   brave: "https://search.brave.com/search?q=",
   ecosia: "https://www.ecosia.org/search?q=",
 };
-
 const ENGINE_NAMES: Record<string, string> = {
-  duckduckgo: "DuckDuckGo",
-  google: "Google",
-  bing: "Bing",
-  brave: "Brave Search",
-  ecosia: "Ecosia",
+  duckduckgo: "DuckDuckGo", google: "Google", bing: "Bing",
+  brave: "Brave Search", ecosia: "Ecosia",
 };
-
 const QUICK_LINKS = [
   { name: "YouTube", url: "https://www.youtube.com", letter: "Y", color: "#e11d48" },
   { name: "X (Twitter)", url: "https://x.com", letter: "X", color: "#111318" },
@@ -33,7 +29,9 @@ export default function NewTab() {
   const [now, setNow] = useState(() => new Date());
   const [engine, setEngine] = useState("duckduckgo");
   const [theme, setTheme] = useState("light");
+  const [accent, setAccent] = useState("mor");
   const [query, setQuery] = useState("");
+  const [profileColor, setProfileColor] = useState("#7c6cf5");
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
@@ -41,6 +39,9 @@ export default function NewTab() {
       .then((s) => {
         setEngine(s.search_engine || "duckduckgo");
         setTheme(s.theme || "light");
+        setAccent(s.accent || "mor");
+        setProfileColor(s.profile_color || "#7c6cf5");
+        applyRootTheme(s.theme || "light", s.accent || "mor");
       })
       .catch(() => {});
     return () => window.clearInterval(timer);
@@ -51,12 +52,13 @@ export default function NewTab() {
       const dark =
         theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.dataset.theme = dark ? "dark" : "light";
+      document.documentElement.dataset.accent = accent;
     };
     apply();
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     mq.addEventListener?.("change", apply);
     return () => mq.removeEventListener?.("change", apply);
-  }, [theme]);
+  }, [theme, accent]);
 
   const hour = now.getHours();
   const greeting = hour < 6 ? "İyi geceler" : hour < 12 ? "Günaydın" : hour < 18 ? "İyi günler" : "İyi akşamlar";
@@ -68,39 +70,33 @@ export default function NewTab() {
     const q = query.trim();
     if (!q) return;
     let target: string;
-    if (/^https?:\/\//i.test(q)) {
-      target = q;
-    } else if (/^[^\s.]+\.[^\s]{2,}$/.test(q) && !q.includes(" ")) {
-      target = `https://${q}`;
-    } else {
-      target = (SEARCH_TEMPLATES[engine] ?? SEARCH_TEMPLATES.duckduckgo) + encodeURIComponent(q);
-    }
-    // Bu sayfa çocuk webview içinde çalışır → konumu kendisi değiştirir
+    if (/^https?:\/\//i.test(q)) target = q;
+    else if (/^[^\s.]+\.[^\s]{2,}$/.test(q) && !q.includes(" ")) target = `https://${q}`;
+    else target = (SEARCH_TEMPLATES[engine] ?? SEARCH_TEMPLATES.duckduckgo) + encodeURIComponent(q);
     window.location.assign(target);
   };
 
   return (
-    <main className="newtab">
-      <div className="newtab-wordmark" aria-hidden="true">
-        <img className="wordmark-img" src="/quantum-browser.png" alt="" width={22} height={22} />
+    <main className="nt-hero">
+      <div className="nt-ambient nt-ambient-a" />
+      <div className="nt-ambient nt-ambient-b" />
+      <div className="nt-ambient nt-ambient-c" />
+
+      <div className="newtab-wordmark" style={{ top: 26, left: 30, position: "absolute" }}>
+        <img className="wordmark-img" src="/quantum-browser.png" alt="" width={28} height={28} />
         <span>QuantumBrowser</span>
       </div>
 
-      <div className="clock" aria-label={timeText}>{timeText}</div>
-      <div className="date-line">{dateText}</div>
-      <div className="greeting">
-        <GreetingIcon size={19} strokeWidth={1.8} />
-        {greeting}! Nereye gidelim?
+      <div className="nt-time-block">
+        <div className="clock" aria-label={timeText}>{timeText}</div>
+        <div className="date-line">{dateText}</div>
+        <div className="greeting">
+          <GreetingIcon size={19} strokeWidth={1.8} />
+          {greeting}! Nereye gidelim?
+        </div>
       </div>
 
-      <form
-        className="omni-big"
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-        role="search"
-      >
+      <form className="omni-big" onSubmit={(e) => { e.preventDefault(); submit(); }} role="search">
         <Search size={19} strokeWidth={2} aria-hidden="true" />
         <input
           autoFocus
@@ -123,12 +119,14 @@ export default function NewTab() {
         ))}
       </div>
 
+      <div className="nt-tip">
+        <Sparkles size={11} /> F1 = Bir şey arayın · Ctrl+K = Adres çubuğu · Ctrl+T = Yeni sekme
+      </div>
+
       <div className="newtab-foot">
         <span>Reklam engelleyici yerleşik</span>
-        <span>·</span>
-        <span>Telemetri yok</span>
-        <span>·</span>
-        <span>Rust ile güçlendirildi</span>
+        <span>· Telemetri yok</span>
+        <span>· Quantum Şifre Kasası</span>
       </div>
     </main>
   );

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import {
   AlertTriangle,
+  ArrowRight,
   Bookmark,
   Check,
   CheckCircle2,
@@ -8,6 +9,7 @@ import {
   FileClock,
   FolderOpen,
   Globe,
+  Github,
   History,
   Info,
   Moon,
@@ -396,6 +398,9 @@ export function SettingsPanel({
   onToggleBlocker,
   onClearData,
   onSetSessionRestore,
+  onSetAccent,
+  onSetBlockInsecure,
+  onOpenVault,
 }: {
   snapshot: Snapshot;
   onClose: () => void;
@@ -404,6 +409,9 @@ export function SettingsPanel({
   onToggleBlocker: (enabled: boolean) => void;
   onClearData: () => void;
   onSetSessionRestore: (enabled: boolean) => void;
+  onSetAccent: (accent: string) => void;
+  onSetBlockInsecure: (enabled: boolean) => void;
+  onOpenVault: () => void;
 }) {
   return (
     <PanelShell title="Ayarlar" icon={Settings2} onClose={onClose}>
@@ -427,6 +435,29 @@ export function SettingsPanel({
               >
                 <Icon size={13} /> {label}
               </button>
+            ))}
+          </div>
+        </div>
+        <div className="card-row" style={{ marginTop: 12 }}>
+          <span style={{ fontWeight: 600 }}>Vurgu rengi (accent)</span>
+          <div className="accent-dots" role="radiogroup" aria-label="Vurgu rengi">
+            {([
+              { name: "mor",   fill: "#8b5cf6" },
+              { name: "mavi",  fill: "#3b82f6" },
+              { name: "teal",  fill: "#14b8a6" },
+              { name: "amber", fill: "#f59e0b" },
+              { name: "yesil", fill: "#10b981" },
+              { name: "kirmizi", fill: "#ef4444" },
+            ] as Array<{ name: string; fill: string }>).map(({ name, fill }) => (
+              <button
+                key={name}
+                className={`accent-dot${snapshot.accent === name ? " on" : ""}`}
+                style={{ background: fill }}
+                role="radio"
+                aria-checked={snapshot.accent === name}
+                aria-label={`Vurgu ${name}`}
+                onClick={() => onSetAccent(name)}
+              />
             ))}
           </div>
         </div>
@@ -479,6 +510,22 @@ export function SettingsPanel({
           </label>
         </div>
         <div className="card-row" style={{ marginTop: 12 }}>
+          <span style={{ fontWeight: 600 }}>Kayıt kasa (Quantum Şifre Kasası)</span>
+          <button className="btn" onClick={onOpenVault}>Şifre Kasası <ArrowRight size={13} style={{verticalAlign: "-2px", marginLeft: 4}} /></button>
+        </div>
+        <div className="card-row" style={{ marginTop: 12 }}>
+          <span style={{ fontWeight: 600 }}>HTTP siteleri engelle</span>
+          <label className="switch" title="HTTPS olmayan siteleri engelle">
+            <input
+              type="checkbox"
+              checked={snapshot.block_insecure}
+              onChange={(e) => onSetBlockInsecure(e.target.checked)}
+              aria-label="HTTP engelleme"
+            />
+            <span className="track" />
+          </label>
+        </div>
+        <div className="card-row" style={{ marginTop: 12 }}>
           <span style={{ fontWeight: 600 }}>Geçmişi ve tamamlanan indirme listesini temizle</span>
           <ArmedButton
             label="Verileri Temizle"
@@ -509,15 +556,33 @@ export function SettingsPanel({
         </p>
       </div>
 
-      <div className="card">
-        <h2><Info size={15} /> Hakkında</h2>
-        <p style={{ marginBottom: 4 }}>
-          <strong>QuantumBrowser</strong> v0.1.0 — WebView2 (Chromium) üzerine inşa edilen, Rust çekirdekli,
-          Arc tarzı ferah arayüze sahip masaüstü tarayıcı.
-        </p>
-        <p style={{ margin: 0 }}>
-          Tauri v2 · React · TypeScript · SQLite/FTS5 · Lucide ikonları · MIT Lisansı
-        </p>
+      <div className="card about-card">
+        <div className="about-art" aria-hidden="true">
+          <div className="about-orbit about-orbit-1" />
+          <div className="about-orbit about-orbit-2" />
+          <img className="about-logo" src="/quantum-browser.png" alt="QuantumBrowser" />
+        </div>
+        <div className="about-body">
+          <h2><Info size={15} /> Hakkında</h2>
+          <p className="about-version"><strong>QuantumBrowser</strong> <span>v0.0.1</span></p>
+          <p className="about-line">
+            WebView2 (Chromium) üzerine inşa edilen, Rust çekirdekli, Arc tarzı ferah arayüze sahip
+            masaüstü tarayıcı. Gizlilik ve hız tasarımımızın merkezidir.
+          </p>
+          <ul className="about-points">
+            <li>Özel yerleşik reklam/izleyici engelleyici</li>
+            <li>Quantum Şifre Kasası (uçtan uca şifreli, yerel)</li>
+            <li>HTTPS zorunluluğu + “yine de git” uyarısı</li>
+            <li>Sıfır telemetri — veri cihazınızda kalır</li>
+          </ul>
+          <p className="about-meta">Tauri v2 · React · TypeScript · SQLite/FTS5 · Lucide ikonları</p>
+          <div className="about-actions">
+            <a className="btn about-link" href="https://github.com/TurkYoshi1905/quantum-browser" target="_blank" rel="noreferrer">
+              <Github size={14} /> GitHub
+            </a>
+            <span className="about-license">AGPL-3.0 açık kaynak</span>
+          </div>
+        </div>
       </div>
     </PanelShell>
   );
