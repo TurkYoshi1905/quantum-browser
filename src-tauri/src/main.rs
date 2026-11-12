@@ -14,6 +14,7 @@ use tauri::{Builder, Manager, WindowEvent};
 fn main() {
     tabs::dbg_log("QuantumBrowser başlatılıyor…");
     Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // ---------- Veritabanı ----------
             let data_dir = match app.path().app_data_dir() {
@@ -163,11 +164,6 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if window.label() == "popover" {
-                // Popover penceresi için kaçak kapanmayı engelle: kapansa bile gizle
-                let _ = window.hide();
-                return;
-            }
             if let WindowEvent::Resized(_) = event {
                 if window.label() == "shell" {
                     let handle = window.app_handle().clone();
@@ -194,7 +190,8 @@ fn main() {
             commands::toggle_group,
             commands::delete_group,
             commands::assign_group,
-            commands::set_overlay_open,
+            commands::show_toast,
+            commands::close_toast,
             commands::set_sidebar_collapsed,
             commands::set_theme,
             commands::set_accent,
@@ -202,6 +199,7 @@ fn main() {
             commands::set_search_engine,
             commands::set_blocker_enabled,
             commands::set_session_restore,
+            commands::set_auto_update,
             commands::open_menu_popup,
             commands::close_menu_popup,
             commands::vault_status,

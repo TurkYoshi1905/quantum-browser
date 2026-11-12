@@ -1,8 +1,10 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "QuantumBrowser varsayılan izinleri — kabuk arayüzü pencere kontrolleri ve çocuk webview oluşturma",
-  "windows": ["shell*", "popover"],
+  "description": "QuantumBrowser varsayilan izinleri - kabuk arayuz pencere kontrolleri, cocuk webview ve updater",
+  "windows": [
+    "shell*"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
@@ -11,6 +13,7 @@
     "core:window:allow-close",
     "core:webview:default",
     "core:webview:allow-create-webview",
-    "core:event:default"
+    "core:event:default",
+    "updater:default"
   ]
 }

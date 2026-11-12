@@ -16,6 +16,7 @@ import {
   Monitor,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   Settings2,
   ShieldCheck,
@@ -25,8 +26,99 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { check } from "@tauri-apps/plugin-updater";
 import type { Panel } from "./Sidebar";
 import type { Snapshot } from "../types";
+
+const APP_VERSION = "0.0.3";
+
+function UpdateSection({
+  autoUpdate,
+  onToggleAutoUpdate,
+}: {
+  autoUpdate: boolean;
+  onToggleAutoUpdate: (enabled: boolean) => void;
+}) {
+  const [checking, setChecking] = useState(false);
+  const [update, setUpdate] = useState<Awaited<ReturnType<typeof check>> | null>(null);
+  const [status, setStatus] = useState<"" | "current" | "error" | "installed">("");
+
+  const checkNow = useCallback(async () => {
+    setChecking(true);
+    setStatus("");
+    setUpdate(null);
+    try {
+      const found = await check();
+      if (found) {
+        setUpdate(found);
+      } else {
+        setStatus("current");
+      }
+    } catch {
+      setStatus("error");
+    } finally {
+      setChecking(false);
+    }
+  }, []);
+
+  const install = useCallback(async () => {
+    if (!update) return;
+    try {
+      await update.downloadAndInstall();
+      setStatus("installed");
+    } catch {
+      setStatus("error");
+    }
+  }, [update]);
+
+  return (
+    <div className="card">
+      <h2><RefreshCw size={15} /> Güncelleme</h2>
+      <div className="card-row">
+        <span style={{ fontWeight: 600 }}>Sürüm</span>
+        <span className="version-chip">v{APP_VERSION}</span>
+      </div>
+      <div className="card-row" style={{ marginTop: 12 }}>
+        <span style={{ fontWeight: 600 }}>Açılışta sessiz kontrol et</span>
+        <label className="switch" title="Uygulama açılırken güncelleme kontrolü yap">
+          <input
+            type="checkbox"
+            checked={autoUpdate}
+            onChange={(e) => onToggleAutoUpdate(e.target.checked)}
+            aria-label="Açılışta sessiz kontrol"
+          />
+          <span className="track" />
+        </label>
+      </div>
+      <div className="card-row" style={{ marginTop: 14 }}>
+        <button className="btn" onClick={checkNow} disabled={checking}>
+          {checking ? "Kontrol ediliyor…" : "Güncellemeleri Denetle"}
+        </button>
+      </div>
+      {status === "current" && (
+        <p className="update-note ok"><CheckCircle2 size={13} /> Güncelsiniz — en son sürüm yüklü.</p>
+      )}
+      {status === "error" && (
+        <p className="update-note err"><AlertTriangle size={13} /> Kontrol başarısız. İnternet bağlantınızı kontrol edin.</p>
+      )}
+      {status === "installed" && (
+        <p className="update-note ok"><CheckCircle2 size={13} /> Kurulum başladı — uygulama kapanacak ve güncellenecek.</p>
+      )}
+      {update && (
+        <div className="update-found">
+          <div className="update-found-head">
+            <span className="update-found-badge">YENİ</span>
+            <strong>v{update.version}</strong> sürüm mevcut
+          </div>
+          {update.body && <div className="update-found-notes">{update.body}</div>}
+          <button className="btn btn-primary" onClick={install}>
+            Şimdi Güncelle (~5 saniye)
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 import {
   addProfile,
   clearBrowsingData,
@@ -401,6 +493,7 @@ export function SettingsPanel({
   onSetAccent,
   onSetBlockInsecure,
   onOpenVault,
+  onToggleAutoUpdate,
 }: {
   snapshot: Snapshot;
   onClose: () => void;
@@ -412,6 +505,7 @@ export function SettingsPanel({
   onSetAccent: (accent: string) => void;
   onSetBlockInsecure: (enabled: boolean) => void;
   onOpenVault: () => void;
+  onToggleAutoUpdate: (enabled: boolean) => void;
 }) {
   return (
     <PanelShell title="Ayarlar" icon={Settings2} onClose={onClose}>
@@ -556,6 +650,8 @@ export function SettingsPanel({
         </p>
       </div>
 
+      <UpdateSection autoUpdate={snapshot.auto_update} onToggleAutoUpdate={onToggleAutoUpdate} />
+
       <div className="card about-card">
         <div className="about-art" aria-hidden="true">
           <div className="about-orbit about-orbit-1" />
@@ -564,7 +660,7 @@ export function SettingsPanel({
         </div>
         <div className="about-body">
           <h2><Info size={15} /> Hakkında</h2>
-          <p className="about-version"><strong>QuantumBrowser</strong> <span>v0.0.1</span></p>
+          <p className="about-version"><strong>QuantumBrowser</strong> <span>v{APP_VERSION}</span></p>
           <p className="about-line">
             WebView2 (Chromium) üzerine inşa edilen, Rust çekirdekli, Arc tarzı ferah arayüze sahip
             masaüstü tarayıcı. Gizlilik ve hız tasarımımızın merkezidir.

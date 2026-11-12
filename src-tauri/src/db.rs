@@ -171,6 +171,7 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         ("block_insecure", "1"),
         ("accent", "mor"),
         ("session_restore", "1"),
+        ("auto_update", "1"),
     ] {
         conn.execute(
             "INSERT OR IGNORE INTO settings (key, value) VALUES (?1, ?2)",

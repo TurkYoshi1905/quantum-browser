@@ -35,7 +35,11 @@ export const assignGroup = (tabId: string, groupId: number | null) =>
   invoke<void>("assign_group", { tabId, groupId });
 
 // ---------- Kabuk ----------
-export const setOverlayOpen = (open: boolean) => invoke<void>("set_overlay_open", { open });
+// İndirme baloncuğu (çocuk webview)
+export const showToast = (text: string) => invoke<void>("show_toast", { text });
+export const closeToast = () => invoke<void>("close_toast");
+export const onToastOpen = (fn: (payload: { text: string }) => void): Promise<UnlistenFn> =>
+  listen<{ text: string }>("toast-open", (e) => fn(e.payload));
 export const setSidebarCollapsed = (collapsed: boolean) =>
   invoke<void>("set_sidebar_collapsed", { collapsed });
 
@@ -79,6 +83,8 @@ export const toggleDevtools = () => invoke<void>("toggle_devtools");
 export const reopenClosedTab = () => invoke<void>("reopen_closed_tab");
 export const setSessionRestore = (enabled: boolean) =>
   invoke<void>("set_session_restore", { enabled });
+export const setAutoUpdate = (enabled: boolean) =>
+  invoke<void>("set_auto_update", { enabled });
 export const setAccent = (accent: string) =>
   invoke<void>("set_accent", { accent });
 export const setBlockInsecure = (enabled: boolean) =>

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check } from "lucide-react";
 import * as api from "./api";
 import type { Snapshot } from "./types";
 import { applyRootTheme } from "./utils/theme";
@@ -11,7 +10,6 @@ const INTERNAL_ICONS_HINT = ["newtab", "settings", "history", "bookmarks", "down
 
 export default function App() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
   const omniboxRef = useRef<HTMLInputElement>(null);
   const snapshotRef = useRef<Snapshot | null>(null);
   snapshotRef.current = snapshot;
@@ -37,7 +35,7 @@ export default function App() {
     };
   }, [refresh]);
 
-  // İndirme tamamlanınca bildirim baloncuğu
+  // İndirme tamamlanınca baloncuk (çocuk webview — sayfa yok edilmez)
   const seenDownloads = useRef<Set<number>>(new Set());
   useEffect(() => {
     const un = api.onDownloadsChanged(async () => {
@@ -46,8 +44,7 @@ export default function App() {
         for (const d of items) {
           if (d.state === "completed" && !seenDownloads.current.has(d.id)) {
             seenDownloads.current.add(d.id);
-            setToast(d.file_name);
-            window.setTimeout(() => setToast(null), 4200);
+            api.showToast(d.file_name).catch(() => {});
           }
         }
       } catch {
@@ -89,12 +86,6 @@ export default function App() {
       window.removeEventListener("mousedown", onMouseDown);
     };
   }, []);
-
-  // İndirme bildirimi açıkken çocuk webview'ı küçült (kabuk önde kalsın)
-  const overlayOpen = toast !== null;
-  useEffect(() => {
-    api.setOverlayOpen(overlayOpen).catch(() => {});
-  }, [overlayOpen]);
 
   const activeTab = snapshot?.tabs.find((t) => t.id === snapshot.active_id) ?? null;
   const activeUrl = activeTab?.url ?? "";
@@ -227,6 +218,22 @@ export default function App() {
     );
   }
 
+  // Sessiz güncelleme kontrolü (ayarlıysa) — Ayarlar dişlisinde mor rozet
+  const [updateDot, setUpdateDot] = useState(false);
+  useEffect(() => {
+    if (!snapshot?.auto_update) return;
+    let active = true;
+    import("@tauri-apps/plugin-updater")
+      .then(({ check }) => check())
+      .then((update) => {
+        if (active && update) setUpdateDot(true);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [snapshot?.auto_update]);
+
   const activeTitle = activeTab ? (activeTab.is_newtab ? "Yeni Sekme" : activeTab.title || activeTab.url) : "QuantumBrowser";
 
   return (
@@ -251,6 +258,7 @@ export default function App() {
             api.createGroup(name, color).then((groupId) => api.assignGroup(tabId, groupId)).then(refresh)
           }
           onOpenPanel={openInternal}
+          updateDot={updateDot}
         />
 
         <div className="content">
@@ -282,15 +290,6 @@ export default function App() {
         </div>
       </div>
 
-      {toast && (
-        <div className="dl-toast" role="status">
-          <Check size={16} color="var(--ok)" />
-          <div>
-            <div className="dl-toast-title">İndirme tamamlandı</div>
-            <div className="dl-toast-sub">{toast}</div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

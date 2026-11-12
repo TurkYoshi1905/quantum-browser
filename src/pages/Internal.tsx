@@ -59,6 +59,7 @@ export function SettingsPage() {
       onSetAccent={(a) => api.setAccent(a).then(refresh)}
       onSetBlockInsecure={(v) => api.setBlockInsecure(v).then(refresh)}
       onOpenVault={() => api.newTab("quantum://vault")}
+      onToggleAutoUpdate={(v) => api.setAutoUpdate(v).then(refresh)}
     />
   );
 }

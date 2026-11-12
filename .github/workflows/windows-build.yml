@@ -59,6 +59,43 @@ jobs:
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit $code
 
+      - name: Updater imzası + latest.json üret
+        id: updater_sign
+        if: always()
+        shell: bash
+        run: |
+          exe=$(ls src-tauri/target/release/bundle/nsis/*.exe 2>/dev/null | head -n 1 || true)
+          if [ -z "$exe" ]; then
+            echo "::warning::İmzalanacak exe bulunamadı"
+            exit 0
+          fi
+          if [ -z "${{ secrets.TAURI_PRIVATE_KEY }}" ]; then
+            echo "::warning::TAURI_PRIVATE_KEY secret tanımlı değil — güncelleme imzalanmadı, latest.json üretilmedi"
+            exit 0
+          fi
+          npx tauri signer sign "$exe" -k "${{ secrets.TAURI_PRIVATE_KEY }}"
+          sig=$(cat "$exe.sig")
+          sha250=$(sha256sum "$exe" | awk '{print $1}')
+          node -e "
+            const fs = require('fs');
+            const sig = fs.readFileSync(process.argv[1] + '.sig', 'utf8').trim();
+            const notes = fs.readFileSync('release-notes/0.0.3.md', 'utf8');
+            const pubDate = new Date().toISOString().replace(/\.\d{3}Z\$/, 'Z');
+            const out = {
+              version: '0.0.3',
+              notes,
+              pub_date: pubDate,
+              platforms: {
+                'windows-x86_64': {
+                  signature: sig,
+                  url: 'https://github.com/TurkYoshi1905/quantum-browser/releases/download/v0.0.3/QuantumBrowser_0.0.3_x64-setup.exe'
+                }
+              }
+            };
+            fs.writeFileSync('latest.json', JSON.stringify(out, null, 2));
+            console.log('latest.json üretildi, sürüm', out.version);
+          " "$exe"
+
       - name: SHA256 + release gövdesi hazırla
         if: always()
         shell: bash
@@ -71,7 +108,7 @@ jobs:
             echo "sha256=$hash" >> "$GITHUB_OUTPUT"
           fi
           {
-            cat release-notes/0.0.2.md
+            cat release-notes/0.0.3.md
             echo ""
             echo "## Bu derleme"
             echo "- Build: #${{ github.run_number }}"
@@ -99,7 +136,9 @@ jobs:
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/nsis/*.sha256
+            src-tauri/target/release/bundle/nsis/*.exe.sig
             src-tauri/target/release/*.exe
+            latest.json
           if-no-files-found: warn
 
       - name: GitHub Release (main hattı)
@@ -108,10 +147,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v0.0.2
-          name: QuantumBrowser v0.0.2 (Windows x64)
+          tag_name: v0.0.3
+          name: QuantumBrowser v0.0.3 (Windows x64)
           body_path: RELEASE_BODY.md
-          files: src-tauri/target/release/bundle/nsis/*.exe
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            latest.json
           fail_on_unmatched_files: false
 
 # ---------------------------------------------------------------------------

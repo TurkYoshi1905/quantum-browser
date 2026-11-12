@@ -52,6 +52,7 @@ interface Props {
   onCreateGroupAndAssign: (tabId: string, name: string, color: string) => void;
   onOpenPanel: (panel: Panel) => void;
   onMenuChange?: (open: boolean) => void;
+  updateDot?: boolean;
 }
 
 function hueFromString(s: string): number {
@@ -283,8 +284,9 @@ export default function Sidebar(props: Props) {
             <History size={16} strokeWidth={2} />
           </button>
           <span style={{ flex: 1 }} />
-          <button className="icon-btn" onClick={() => props.onOpenPanel("settings")} title="Ayarlar" aria-label="Ayarlar">
+          <button className="icon-btn update-btn" onClick={() => props.onOpenPanel("settings")} title="Ayarlar" aria-label="Ayarlar" style={{ position: "relative" }}>
             <Settings size={16} strokeWidth={2} />
+            {props.updateDot && <span className="update-dot" aria-hidden="true" />}
           </button>
         </div>
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "QuantumBrowser",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "identifier": "com.quantum.browser",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -33,6 +33,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "publisher": "QuantumBrowser",
     "copyright": "© 2026 QuantumBrowser Projesi — AGPL-3.0 Lisansı",
     "shortDescription": "Arc tarzı, gizlilik saygılı Windows tarayıcı",
@@ -53,6 +54,18 @@
         "languages": ["Turkish", "English"],
         "displayLanguageSelector": true,
         "installerIcon": "./icons/icon.ico"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDA2MDJCOTg3NkYzMTdFREEKUldUYWZqRnZoN2tDQnJ3RFkvSjdTcUhOT01pL24xdmQzOUtwUFZWT0tBRFdTOHNvMGtWbUdmYi8K",
+      "endpoints": [
+        "https://github.com/TurkYoshi1905/quantum-browser/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

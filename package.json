@@ -1,7 +1,7 @@
 {
   "name": "quantum-browser",
   "private": true,
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
   "description": "QuantumBrowser — WebView2 tabanlı, Arc tarzı, gizlilik saygılı Windows tarayıcı",
   "scripts": {
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-updater": "^2.0.0",
     "lucide-react": "^0.460.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

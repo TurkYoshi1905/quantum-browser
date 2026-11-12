@@ -43,7 +43,6 @@ pub struct ClosedEntry {
 pub struct TabsStore {
     pub tabs: Vec<TabMeta>,
     pub active: Option<String>,
-    pub overlay_open: bool,
     pub sidebar_collapsed: bool,
     pub blocker_enabled: bool,
     pub profile_id: Option<i64>,
@@ -79,10 +78,10 @@ pub struct Snapshot {
     pub search_engine: String,
     pub blocker_enabled: bool,
     pub sidebar_collapsed: bool,
-    pub overlay_open: bool,
     pub session_restore: bool,
     pub accent: String,
     pub block_insecure: bool,
+    pub auto_update: bool,
 }
 
 // ---------- Yerleşim ----------
@@ -129,14 +128,10 @@ pub fn relayout(app: &AppHandle) -> Result<(), String> {
     let window = app
         .get_window("shell")
         .ok_or_else(|| "kabuk penceresi bulunamadı".to_string())?;
-    let (active, overlay, collapsed) = {
+    let (active, collapsed) = {
         let state = app.state::<AppState>();
         let store = state.tabs.lock().unwrap();
-        (
-            store.active.clone(),
-            store.overlay_open,
-            store.sidebar_collapsed,
-        )
+        (store.active.clone(), store.sidebar_collapsed)
     };
     let page = page_rect(&window, collapsed);
     let zero = (LogicalPosition::new(0.0, 0.0), LogicalSize::new(1.0, 1.0));
@@ -147,7 +142,7 @@ pub fn relayout(app: &AppHandle) -> Result<(), String> {
     };
     for label in labels {
         if let Some(wv) = app.get_webview(&label) {
-            let is_active = !overlay && active.as_deref() == Some(label.as_str());
+            let is_active = active.as_deref() == Some(label.as_str());
             if is_active {
                 set_webview_rect(&wv, page.0, page.1);
             } else {
@@ -284,12 +279,11 @@ pub fn emit_tabs_changed(app: &AppHandle) {
 
 pub fn snapshot(app: &AppHandle) -> Snapshot {
     let state = app.state::<AppState>();
-    let (tabs, active, overlay, collapsed, blocker_enabled, profile_id) = {
+    let (tabs, active, collapsed, blocker_enabled, profile_id) = {
         let store = state.tabs.lock().unwrap();
         (
             store.tabs.clone(),
             store.active.clone(),
-            store.overlay_open,
             store.sidebar_collapsed,
             store.blocker_enabled,
             store.profile_id,
@@ -319,10 +313,10 @@ pub fn snapshot(app: &AppHandle) -> Snapshot {
         search_engine: db::get_setting(&db, "search_engine"),
         blocker_enabled,
         sidebar_collapsed: collapsed,
-        overlay_open: overlay,
         session_restore: db::get_setting(&db, "session_restore") == "1",
         accent: db::get_setting(&db, "accent"),
         block_insecure: db::get_setting(&db, "block_insecure") == "1",
+        auto_update: db::get_setting(&db, "auto_update") == "1",
     }
 }
 
@@ -769,14 +763,44 @@ pub fn close_others(app: &AppHandle, keep: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn set_overlay_open(app: &AppHandle, open: bool) {
-    {
-        let state = app.state::<AppState>();
-        let mut store = state.tabs.lock().unwrap();
-        store.overlay_open = open;
+/// İndirme bildirimi baloncuğunu kabuk penceresi içindeki çocuk webview ile gösterir.
+/// Sayfalarla aynı çocuk-webview motorunu kullanır; sayfa alanı asla yok edilmez,
+/// kabuk DOM'u toast'ın üstünde kaldığı için tıklama/odak sorunları oluşmaz.
+pub fn show_toast(app: &AppHandle, text: &str) -> Result<(), String> {
+    let window = app
+        .get_window("shell")
+        .ok_or_else(|| "kabuk penceresi bulunamadı".to_string())?;
+    let (ww, _wh) = logical_inner(&window);
+    let w = 340.0_f64;
+    let h = 74.0_f64;
+    let x = (ww - w - 14.0).max(8.0);
+    let y = TITLEBAR_H + ADDRESSBAR_H + 10.0;
+    let pos = LogicalPosition::new(x, y);
+    let size = LogicalSize::new(w, h);
+    if let Some(wv) = app.get_webview("toast") {
+        set_webview_rect(&wv, pos, size);
+        dbg_log(&format!("toast show (reuse) text len={}", text.len()));
+    } else {
+        let builder = WebviewBuilder::new("toast", WebviewUrl::App("index.html#/toast".into()));
+        let _ = window
+            .add_child(builder, pos, size)
+            .map_err(|e| format!("toast webview'u yaratılamadı: {e}"))?;
+        dbg_log(&format!("toast child created len={}", text.len()));
     }
-    let _ = relayout(app);
-    emit_tabs_changed(app);
+    let _ = app.emit("toast-open", serde_json::json!({ "text": text }));
+    Ok(())
+}
+
+/// Toast'ı 1×1'e küçülterek gizler.
+pub fn hide_toast(app: &AppHandle) {
+    if let Some(wv) = app.get_webview("toast") {
+        set_webview_rect(
+            &wv,
+            LogicalPosition::new(0.0, 0.0),
+            LogicalSize::new(1.0, 1.0),
+        );
+        dbg_log("toast hide");
+    }
 }
 
 pub fn set_sidebar_collapsed(app: &AppHandle, collapsed: bool) {

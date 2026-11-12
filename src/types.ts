@@ -41,10 +41,10 @@ export interface Snapshot {
   search_engine: string;
   blocker_enabled: boolean;
   sidebar_collapsed: boolean;
-  overlay_open: boolean;
   session_restore: boolean;
   accent: string;
   block_insecure: boolean;
+  auto_update: boolean;
 }
 
 export interface Bookmark {

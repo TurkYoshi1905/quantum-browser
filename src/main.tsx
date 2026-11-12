@@ -5,6 +5,7 @@ import App from "./App";
 import NewTab from "./pages/NewTab";
 import ErrorBoundary from "./components/ErrorBoundary";
 import MenuPopup from "./pages/MenuPopup";
+import Toast from "./pages/Toast";
 import Blocked from "./pages/Blocked";
 import Vault from "./pages/Vault";
 import {
@@ -27,6 +28,7 @@ const internalPages: Record<string, React.ReactNode> = {
   downloads: <DownloadsPage />,
   profiles: <ProfilesPage />,
   popover: <MenuPopup />,
+  toast: <Toast />,
   vault: <Vault />,
   blocked: <Blocked />,
 };

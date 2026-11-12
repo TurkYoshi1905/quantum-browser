@@ -226,9 +226,15 @@ pub fn assign_group(
 
 // ---------- Kabuk durumu ----------
 
+/// İndirme tamamlandı baloncuğunu çocuk webview ile gösterir (sayfa yok edilmez).
 #[tauri::command]
-pub fn set_overlay_open(app: AppHandle, open: bool) {
-    tabs::set_overlay_open(&app, open);
+pub fn show_toast(app: AppHandle, text: String) -> Result<(), String> {
+    tabs::show_toast(&app, &text)
+}
+
+#[tauri::command]
+pub fn close_toast(app: AppHandle) {
+    tabs::hide_toast(&app);
 }
 
 #[tauri::command]
@@ -293,6 +299,21 @@ pub fn set_session_restore(state: State<'_, AppState>, enabled: bool) -> Result<
     let db = state.db.lock().unwrap();
     db::set_setting(&db, "session_restore", if enabled { "1" } else { "0" })
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_auto_update(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> Result<(), String> {
+    {
+        let db = state.db.lock().unwrap();
+        db::set_setting(&db, "auto_update", if enabled { "1" } else { "0" })
+            .map_err(|e| e.to_string())?;
+    }
+    tabs::emit_tabs_changed(&app);
+    Ok(())
 }
 
 // ---------- Yer imleri ----------
