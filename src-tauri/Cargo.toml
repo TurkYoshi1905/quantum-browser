@@ -1,6 +1,6 @@
 [package]
 name = "quantum-browser"
-version = "0.0.1"
+version = "0.0.2"
 description = "QuantumBrowser - WebView2 tabanli, Arc tarzi, gizlilik saygili Windows tarayicisi"
 authors = ["QuantumBrowser"]
 license = "AGPL-3.0-only"

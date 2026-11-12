@@ -164,6 +164,58 @@ fn set_webview_rect(wv: &Webview, pos: LogicalPosition<f64>, size: LogicalSize<f
     let _ = wv.set_size(size);
 }
 
+// ---------- ⋮ Menüsü (kabuk penceresi içindeki çocuk webview) ----------
+
+/// Menünün mantıksal durumu hiçbir yerde saklanmaz: görünür = büyükbounds,
+/// gizli = 1x1 (relayout'un sekmelerle aynı 1x1 deseni).
+pub const MENU_LABEL: &str = "menu";
+const MENU_W: f64 = 264.0;
+const MENU_W_TAB: f64 = 264.0;
+const MENU_H_MAIN: f64 = 344.0;
+const MENU_H_TAB: f64 = 440.0;
+
+/// Menü çocuk webview'ı yoksa yaratır, varsa yalnızca bounds'unu ayarlar.
+/// Çocuk webview'lar sibling sırayla üst üste çizilir; sayfadan SONRA
+/// yaratıldığı için her zaman üste düşer — topmost/AlwaysOnTop'a gerek yok,
+/// odak çalmaz, diğer evrensel butonlar ölmez.
+pub fn show_menu(app: &AppHandle, menu: &str, x: f64, y: f64) -> Result<(), String> {
+    let (w, h) = match menu {
+        "tab" => (MENU_W_TAB, MENU_H_TAB),
+        _ => (MENU_W, MENU_H_MAIN),
+    };
+    let window = app
+        .get_window("shell")
+        .ok_or_else(|| "kabuk penceresi bulunamadı".to_string())?;
+    let (ww, _wh) = logical_inner(&window);
+    let x = x.clamp(8.0, (ww - w - 8.0).max(8.0));
+    let pos = LogicalPosition::new(x, y);
+    let size = LogicalSize::new(w, h);
+    if let Some(wv) = app.get_webview(MENU_LABEL) {
+        set_webview_rect(&wv, pos, size);
+        dbg_log(&format!("menu show (reuse) x={x} y={y} menu={menu}"));
+        return Ok(());
+    }
+    let builder = WebviewBuilder::new(MENU_LABEL, WebviewUrl::App("index.html#/popover".into()));
+    let _ = window
+        .add_child(builder, pos, size)
+        .map_err(|e| format!("menü webview'ı yaratılamadı: {e}"))?;
+    dbg_log(&format!("menu child created x={x} y={y} menu={menu}"));
+    Ok(())
+}
+
+/// Menüyü 1x1'e küçülterek gizler (pencere yok edilir — sonraki açılışta
+/// tekrar yaratılır; canlı webview bellekte kalmaz).
+pub fn hide_menu(app: &AppHandle) {
+    if let Some(wv) = app.get_webview(MENU_LABEL) {
+        set_webview_rect(
+            &wv,
+            LogicalPosition::new(0.0, 0.0),
+            LogicalSize::new(1.0, 1.0),
+        );
+        dbg_log("menu hide");
+    }
+}
+
 /// Hafif tanılama kaydı — donma olursa `%LOCALAPPDATA%/com.quantum.browser/rust.log`undan bakılır.
 #[cfg(not(test))]
 pub(crate) fn dbg_log(msg: &str) {
@@ -372,6 +424,7 @@ pub fn create_tab(
     url_opt: Option<String>,
     incognito: bool,
 ) -> Result<String, String> {
+    hide_menu(app);
     let window = app
         .get_window("shell")
         .ok_or_else(|| "kabuk penceresi bulunamadı".to_string())?;
@@ -567,6 +620,7 @@ pub fn create_tab(
 }
 
 pub fn activate_tab(app: &AppHandle, label: &str) -> Result<(), String> {
+    hide_menu(app);
     {
         let state = app.state::<AppState>();
         let mut store = state.tabs.lock().unwrap();

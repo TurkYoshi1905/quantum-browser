@@ -61,20 +61,18 @@ export default function AddressBar(props: Props) {
   const secure = url.startsWith("https://");
   const insecure = url.startsWith("http://");
 
-  // Menüyü şeffaf, her zaman üstte bir popover penceresinde aç (Chrome mantığı).
-  // Konum: window.screenX/screenY + buton dikdörtgeni (hepsi CSS px). outerPosition()
-  // fiziksel piksel döndürür ve ölçeklenen (125%+) ekranlarda menüyü yanlış yere düşürür.
+  // Menüyü kabuk penceresi içindeki çocuk webview'da aç (butona göre viewport koordinatı).
   const openMainMenu = (e: React.MouseEvent) => {
     const btn = e.currentTarget as HTMLElement;
     const rect = btn.getBoundingClientRect();
-    const width = 260;
-    const estimated = 340;
-    let x = window.screenX + rect.right - width; // sağ kenarı butona hizala
-    if (x < window.screenX) x = window.screenX + rect.left;
-    let y = window.screenY + rect.bottom + 6;
-    if (y + estimated > window.screenY + window.innerHeight - 12) {
-      y = window.screenY + rect.top - estimated - 6; // altta yer yoksa üste aç
-      if (y < window.screenY) y = window.screenY + window.innerHeight - estimated - 12;
+    const width = 264;
+    const estimated = 344;
+    let x = rect.right - width; // sağ kenarı butona hizala
+    if (x < 8) x = 8;
+    let y = rect.bottom + 6;
+    if (y + estimated > window.innerHeight - 12) {
+      y = rect.top - estimated - 6; // altta yer yoksa üste aç
+      if (y < 8) y = window.innerHeight - estimated - 12;
     }
     api.openMenuPopup("main", x, y);
   };

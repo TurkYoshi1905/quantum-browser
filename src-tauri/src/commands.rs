@@ -148,31 +148,10 @@ pub async fn reopen_closed_tab(app: AppHandle) -> Result<(), String> {
 /// Popover penceresinin tembel (lazy) yaratımı + konumlandırma + gösterme.
 /// Startup'ta yaratmak yerine ilk menü açılışında yaratılır — bu, uygulamanın
 /// açılır açılmaz çökmesini önler.
-fn ensure_popover(app: &AppHandle) -> Option<tauri::webview::WebviewWindow<tauri::Wry>> {
-    if let Some(win) = app.get_webview_window("popover") {
-        return Some(win);
-    }
-    let win = tauri::webview::WebviewWindowBuilder::new(
-        app,
-        "popover",
-        tauri::WebviewUrl::App("index.html#/popover".into()),
-    )
-    .title("QuantumBrowser Menu")
-    .decorations(false)
-    .inner_size(248.0, 420.0)
-    .always_on_top(true)
-    .transparent(true)
-    .resizable(false)
-    .visible(false)
-    .skip_taskbar(true)
-    .focused(false)
-    .build()
-    .ok()?;
-    Some(win)
-}
-
-/// Popover penceresini (dekorsuz, şeffaf, en üstte) konumlandırıp gösterir.
-/// Kabuktan çağrılır; popover sayfası "menu-open" olayı ile menü tipini okur.
+/// ⋮ Menüsünü kabuk penceresi içindeki bir çocuk webview olarak gösterir.
+/// Eski "top-level transparent popover" yaklaşımı Windows'ta görünmez pencere +
+/// odak çalma + tıklama yutma sorunlarına yol açmıştı; çocuk webview sayfalarla
+/// aynı z-order motorunu ve aynı girdi yolunu paylaşır.
 #[tauri::command]
 pub fn open_menu_popup(
     app: AppHandle,
@@ -181,24 +160,8 @@ pub fn open_menu_popup(
     y: f64,
     tab_id: Option<String>,
 ) -> Result<(), String> {
-    let (w, h) = match menu.as_str() {
-        "main" => (260.0_f64, 340.0_f64),
-        "tab" => (260.0_f64, 440.0_f64),
-        _ => (260.0_f64, 340.0_f64),
-    };
-    tabs::dbg_log(&format!(
-        "open_menu_popup: menu={menu} x={x} y={y} w={w} h={h}"
-    ));
-    let Some(win) = ensure_popover(&app) else {
-        tabs::dbg_log("open_menu_popup: popover penceresi yaratılamadı");
-        return Err("popover penceresi yaratılamadı".to_string());
-    };
-    let _ = win.set_size(tauri::LogicalSize::<f64>::new(w, h));
-    let _ = win.set_position(tauri::LogicalPosition::<f64>::new(x, y));
-    let _ = win.show();
-    // ODAK ÇALMA YOK: popover kabuğu pasif hale getirmez (donma kök nedeni).
-    // Menü maddeleri fare tıklamasıyla çalışır (topmost yeter), kabuk odağı korunur;
-    // kapatma yolu: kabuk Escape / dış mousedown dinleyicisi + öğe seçimi.
+    tabs::dbg_log(&format!("open_menu_popup: menu={menu} x={x} y={y}"));
+    tabs::show_menu(&app, &menu, x, y)?;
     let _ = app.emit(
         "menu-open",
         serde_json::json!({ "menu": menu, "tabId": tab_id }),
@@ -206,12 +169,10 @@ pub fn open_menu_popup(
     Ok(())
 }
 
-/// Popover penceresini gizler (kapanma / Escape / dışarı tıklama / öğe seçimi).
+/// Menüyü gizler (kapanma / Escape / dışarı tıklama / öğe seçimi).
 #[tauri::command]
 pub fn close_menu_popup(app: AppHandle) -> Result<(), String> {
-    if let Some(win) = app.get_webview_window("popover") {
-        let _ = win.hide();
-    }
+    tabs::hide_menu(&app);
     Ok(())
 }
 

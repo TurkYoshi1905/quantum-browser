@@ -128,24 +128,23 @@ export default function Sidebar(props: Props) {
   }
   const ungrouped = rest.filter((t) => t.group_id == null);
 
-  // Sekme menüsünü bağımsız popover penceresinde aç (Chrome mantığı).
-  // Konum: window.screenX/screenY + buton dikdörtgeni (hepsi CSS px).
+  // Sekme menüsünü kabuk penceresi içindeki çocuk webview'da aç (butona göre viewport koordinatı).
   const openTabMenu = useCallback(
     (e: React.MouseEvent | MouseEvent, tabId: string) => {
       e.preventDefault?.();
       e.stopPropagation?.();
       const btn = e.currentTarget as HTMLElement;
       const rect = btn.getBoundingClientRect();
-      const width = 260;
+      const width = 264;
       const estimated = 440;
-      let x = window.screenX + rect.left;
-      if (x + width > window.screenX + window.innerWidth) {
-        x = window.screenX + rect.right - width;
+      let x = rect.left;
+      if (x + width > window.innerWidth) {
+        x = rect.right - width;
       }
-      let y = window.screenY + rect.bottom + 6;
-      if (y + estimated > window.screenY + window.innerHeight - 12) {
-        y = window.screenY + rect.top - estimated - 6;
-        if (y < window.screenY) y = window.screenY + window.innerHeight - estimated - 12;
+      let y = rect.bottom + 6;
+      if (y + estimated > window.innerHeight - 12) {
+        y = rect.top - estimated - 6;
+        if (y < 8) y = window.innerHeight - estimated - 12;
       }
       api.openMenuPopup("tab", x, y, tabId);
     },
