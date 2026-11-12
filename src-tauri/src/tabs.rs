@@ -754,13 +754,13 @@ pub fn set_blocker_enabled(app: &AppHandle, enabled: bool) {
 pub fn navigate_active(app: &AppHandle, url_input: &str) -> Result<(), String> {
     // İç sayfa navigasyonu: quantum://settings gibi girdiyi yeni sekmede aç
     let trimmed = url_input.trim();
-    if (trimmed.starts_with("quantum://")) {
+    if trimmed.starts_with("quantum://") {
         return create_tab(app, Some(trimmed.to_string()), false).map(|_| ());
     }
     // "Yine de devam et" butonu: qb_bypass=1 → engellemeyi atla (tek seferlik)
     let (bypass, cleaned) = match trimmed.find("qb_bypass=1") {
         Some(pos) => {
-            let mut s = trimmed.clone();
+            let mut s = trimmed.to_string();
             s.replace_range(pos..pos + "qb_bypass=1".len(), "");
             let s = s.replace("?&", "?").replace("&&", "&");
             let s = s.trim_end_matches('&').trim_end_matches('?').to_string();

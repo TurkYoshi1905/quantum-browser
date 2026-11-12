@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "quantum-browser"
 version = "0.0.1"
 description = "QuantumBrowser - WebView2 tabanli, Arc tarzi, gizlilik saygili Windows tarayicisi"
