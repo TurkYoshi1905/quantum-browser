@@ -33,7 +33,6 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "createUpdaterArtifacts": true,
     "publisher": "QuantumBrowser",
     "copyright": "© 2026 QuantumBrowser Projesi — AGPL-3.0 Lisansı",
     "shortDescription": "Arc tarzı, gizlilik saygılı Windows tarayıcı",
