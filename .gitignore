@@ -27,3 +27,8 @@ Thumbs.db
 
 # Kişisel notlar
 .local/
+
+# Website (kendi reposu, commit'lenmez)
+QuantumBrowser Web Sitesi/
+RELEASE_BODY.md
+build.log

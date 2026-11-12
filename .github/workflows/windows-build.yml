@@ -17,6 +17,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Encoding lint (mojibake)
+        shell: bash
+        run: |
+          bad=$(grep -rn -E "Ã|â€" src/ src-tauri/src/ release-notes/ --include="*.tsx" --include="*.ts" --include="*.css" --include="*.html" --include="*.rs" --include="*.md" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Türkçe mojibake tespit edildi:"
+            echo "$bad" | head -20
+            exit 1
+          fi
+          echo "mojibake temiz"
+
       - name: Node 22 kurulumu
         uses: actions/setup-node@v4
         with:
@@ -48,6 +59,26 @@ jobs:
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit $code
 
+      - name: SHA256 + release gövdesi hazırla
+        if: always()
+        shell: bash
+        run: |
+          exe=$(ls src-tauri/target/release/bundle/nsis/*.exe 2>/dev/null | head -n 1 || true)
+          hash=""
+          if [ -n "$exe" ]; then
+            hash=$(sha256sum "$exe" | awk '{print $1}')
+            sha256sum "$exe" > "$exe.sha256"
+            echo "sha256=$hash" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            cat release-notes/0.0.1.md
+            echo ""
+            echo "## Bu derleme"
+            echo "- Build: #${{ github.run_number }}"
+            echo "- SHA256: \`$hash\`"
+            echo "- Lisans: GNU AGPL-3.0"
+          } > RELEASE_BODY.md
+
       - name: Derleme hatalarını annotations'a yaz
         if: steps.tauri_build.outcome == 'failure'
         shell: bash
@@ -67,6 +98,7 @@ jobs:
           name: QuantumBrowser-windows-x64
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.sha256
             src-tauri/target/release/*.exe
           if-no-files-found: warn
 
@@ -76,21 +108,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v0.0.1-build.${{ github.run_number }}
-          name: QuantumBrowser v0.0.1 — build ${{ github.run_number }} (Windows x64)
-          body: |
-            ⚛️ **QuantumBrowser v0.0.1** — Tauri v2 + Rust + React ile inşa edildi.
-
-            ⚠️ **İmzasız derleme.** Windows, "PC'niz korundu / Windows protected your PC" uyarısı gösterebilir.
-            Bu, Microsoft'un bilinmeyen imzasız uygulamalar için standart uyarısıdır:
-            **More info → Run anyway** ile çalıştırabilirsiniz.
-            İmzalama (resmi sürüm) v1.0 hedefidir.
-
-            Kurulum: `QuantumBrowser_0.0.1_x64-setup.exe` dosyasını çalıştırın.
-            WebView2 Runtime gerektirir (Windows 10/11'de zaten yüklüdür; yüklü değilse kurulumcu indirir).
-
-            Bilinen sınırlar: Chrome uzantıları yok (WebView2), bazı sitelerde Google OAuth 403 verebilir,
-            DRM (Netflix) değişiklik gösterebilir.
+          tag_name: v0.0.1
+          name: QuantumBrowser v0.0.1 (Windows x64)
+          body_path: RELEASE_BODY.md
           files: src-tauri/target/release/bundle/nsis/*.exe
           fail_on_unmatched_files: false
 

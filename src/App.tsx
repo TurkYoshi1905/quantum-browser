@@ -71,6 +71,25 @@ export default function App() {
     return () => mq.removeEventListener?.("change", onChange);
   }, [theme, accent]);
 
+  // Popover odağı çalmadığı için menü açıkken kabuk prompt dinleyicisi burada yaşar:
+  // Escape veya menü dışına mousedown → popover kapanır (kabuğun hiçbir butonu kilitlenmez).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") api.closeMenuPopup().catch(() => {});
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("[data-menu-anchor]")) return; // ⋮ butonu toggle'ı kendi halletsin
+      api.closeMenuPopup().catch(() => {});
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("mousedown", onMouseDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("mousedown", onMouseDown);
+    };
+  }, []);
+
   // İndirme bildirimi açıkken çocuk webview'ı küçült (kabuk önde kalsın)
   const overlayOpen = toast !== null;
   useEffect(() => {
