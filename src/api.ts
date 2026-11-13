@@ -85,6 +85,14 @@ export const setSessionRestore = (enabled: boolean) =>
   invoke<void>("set_session_restore", { enabled });
 export const setAutoUpdate = (enabled: boolean) =>
   invoke<void>("set_auto_update", { enabled });
+export const setAutoUpdateBackground = (enabled: boolean) =>
+  invoke<void>("set_auto_update_background", { enabled });
+export const dbgLogFrontend = (msg: string) =>
+  invoke<void>("dbg_log_frontend", { msg });
+export const showPalette = () => invoke<void>("show_palette");
+export const hidePalette = () => invoke<void>("hide_palette");
+export const togglePalette = () => invoke<void>("toggle_palette");
+export const runRepair = () => invoke<void>("run_repair");
 export const setAccent = (accent: string) =>
   invoke<void>("set_accent", { accent });
 export const setBlockInsecure = (enabled: boolean) =>

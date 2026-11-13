@@ -82,6 +82,7 @@ pub struct Snapshot {
     pub accent: String,
     pub block_insecure: bool,
     pub auto_update: bool,
+    pub auto_update_background: bool,
 }
 
 // ---------- Yerleşim ----------
@@ -317,6 +318,7 @@ pub fn snapshot(app: &AppHandle) -> Snapshot {
         accent: db::get_setting(&db, "accent"),
         block_insecure: db::get_setting(&db, "block_insecure") == "1",
         auto_update: db::get_setting(&db, "auto_update") == "1",
+        auto_update_background: db::get_setting(&db, "auto_update_background") == "1",
     }
 }
 
@@ -801,6 +803,58 @@ pub fn hide_toast(app: &AppHandle) {
         );
         dbg_log("toast hide");
     }
+}
+
+// ---------- Komut Paleti (Ctrl+K) ----------
+
+/// Komut paletini tam pencere boyutunda çocuk webview'da gösterir ve odaklar.
+pub fn show_palette(app: &AppHandle) -> Result<(), String> {
+    let window = app
+        .get_window("shell")
+        .ok_or_else(|| "kabuk penceresi bulunamadı".to_string())?;
+    let (ww, wh) = logical_inner(&window);
+    let pos = LogicalPosition::new(0.0, 0.0);
+    let size = LogicalSize::new(ww, wh);
+    if let Some(wv) = app.get_webview("palette") {
+        set_webview_rect(&wv, pos, size);
+        let _ = wv.set_focus();
+        dbg_log("palette show (reuse)");
+        return Ok(());
+    }
+    let builder = WebviewBuilder::new("palette", WebviewUrl::App("index.html#/palette".into()));
+    let _ = window
+        .add_child(builder, pos, size)
+        .map_err(|e| format!("komut paleti yaratılamadı: {e}"))?;
+    if let Some(wv) = app.get_webview("palette") {
+        let _ = wv.set_focus();
+    }
+    dbg_log("palette child created");
+    Ok(())
+}
+
+/// Komut paletini gizler (1×1).
+pub fn hide_palette(app: &AppHandle) {
+    if let Some(wv) = app.get_webview("palette") {
+        set_webview_rect(
+            &wv,
+            LogicalPosition::new(0.0, 0.0),
+            LogicalSize::new(1.0, 1.0),
+        );
+        dbg_log("palette hide");
+    }
+}
+
+/// Açıksa kapatır, kapalıysa açar.
+pub fn toggle_palette(app: &AppHandle) -> Result<(), String> {
+    if let Some(wv) = app.get_webview("palette") {
+        if let Ok(size) = wv.size() {
+            if size.width > 4 {
+                hide_palette(app);
+                return Ok(());
+            }
+        }
+    }
+    show_palette(app)
 }
 
 pub fn set_sidebar_collapsed(app: &AppHandle, collapsed: bool) {

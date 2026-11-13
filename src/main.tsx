@@ -5,9 +5,21 @@ import App from "./App";
 import NewTab from "./pages/NewTab";
 import ErrorBoundary from "./components/ErrorBoundary";
 import MenuPopup from "./pages/MenuPopup";
+import Palette from "./pages/Palette";
 import Toast from "./pages/Toast";
 import Blocked from "./pages/Blocked";
 import Vault from "./pages/Vault";
+import { dbgLogFrontend } from "./api";
+
+// Kabuk/iç sayfalardan gelen hataları sessizce yutmayıp rust.log'a düşür (tanı).
+if (typeof window !== "undefined") {
+  window.addEventListener("error", (e) => {
+    dbgLogFrontend(`[window.error] ${e.message} @ ${e.filename}:${e.lineno}`).catch(() => {});
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    dbgLogFrontend(`[unhandledrejection] ${String(e.reason)}`).catch(() => {});
+  });
+}
 import {
   SettingsPage,
   HistoryPage,
@@ -31,6 +43,7 @@ const internalPages: Record<string, React.ReactNode> = {
   toast: <Toast />,
   vault: <Vault />,
   blocked: <Blocked />,
+  palette: <Palette />,
 };
 
 const pageToRender = internalPages[route];

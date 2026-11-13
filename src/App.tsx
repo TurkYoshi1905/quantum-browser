@@ -137,6 +137,11 @@ export default function App() {
         fn();
       };
 
+      if (key === "k" && !shift) {
+        e.preventDefault();
+        api.togglePalette();
+        return;
+      }
       if (key === "tab") {
         e.preventDefault();
         cycleTab(shift ? -1 : 1);
@@ -218,21 +223,31 @@ export default function App() {
     );
   }
 
-  // Sessiz güncelleme kontrolü (ayarlıysa) — Ayarlar dişlisinde mor rozet
+  // Sessiz güncelleme kontrolü (ayarlıysa) — dişlide mor rozet + toast + arka planda indirme
   const [updateDot, setUpdateDot] = useState(false);
   useEffect(() => {
     if (!snapshot?.auto_update) return;
+    const background = snapshot.auto_update_background;
     let active = true;
     import("@tauri-apps/plugin-updater")
       .then(({ check }) => check())
       .then((update) => {
-        if (active && update) setUpdateDot(true);
+        if (!active || !update) return;
+        setUpdateDot(true);
+        if (background) {
+          update
+            .download()
+            .then(() => { if (active) api.showToast(`Güncelleme indirildi: v${update.version} — Ayarlar'dan kur`).catch(() => {}); })
+            .catch(() => {});
+        } else {
+          api.showToast(`Güncelleme hazır: v${update.version} — Ayarlar → Güncelleme`).catch(() => {});
+        }
       })
       .catch(() => {});
     return () => {
       active = false;
     };
-  }, [snapshot?.auto_update]);
+  }, [snapshot?.auto_update, snapshot?.auto_update_background]);
 
   const activeTitle = activeTab ? (activeTab.is_newtab ? "Yeni Sekme" : activeTab.title || activeTab.url) : "QuantumBrowser";
 

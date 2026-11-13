@@ -45,6 +45,7 @@ export interface Snapshot {
   accent: string;
   block_insecure: boolean;
   auto_update: boolean;
+  auto_update_background: boolean;
 }
 
 export interface Bookmark {

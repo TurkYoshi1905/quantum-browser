@@ -659,6 +659,73 @@ pub fn vault_import(state: State<'_, AppState>, contents: String) -> Result<usiz
     vault::import(&conn, state.inner(), &contents)
 }
 
+// ---------- Tanılama ----------
+
+/// Kabuk/iç sayfalardan gelen frontend hatalarını rust.log'a düşür.
+#[tauri::command]
+pub fn dbg_log_frontend(msg: String) {
+    tabs::dbg_log(&format!("[frontend] {msg}"));
+}
+
+// ---------- Komut Paleti (Ctrl+K) ----------
+
+#[tauri::command]
+pub fn show_palette(app: AppHandle) -> Result<(), String> {
+    tabs::show_palette(&app)
+}
+
+#[tauri::command]
+pub fn hide_palette(app: AppHandle) {
+    tabs::hide_palette(&app);
+}
+
+#[tauri::command]
+pub fn toggle_palette(app: AppHandle) -> Result<(), String> {
+    tabs::toggle_palette(&app)
+}
+
+// ---------- Kurulumu Onar ----------
+
+/// Setup'ı indirip sessiz (/S) kur: bozuk kurulumu/sayfaları üzerine onar.
+#[tauri::command]
+pub fn run_repair(app: AppHandle) -> Result<(), String> {
+    let temp = std::env::temp_dir();
+    let installer = temp.join("QuantumBrowser_repair.exe");
+    let script = format!(
+        "Invoke-WebRequest -Uri 'https://github.com/TurkYoshi1905/quantum-browser/releases/latest/download/QuantumBrowser_0.0.4_x64-setup.exe' -OutFile '{}'; Start-Process '{}' -ArgumentList '/S'",
+        installer.display(),
+        installer.display()
+    );
+    std::process::Command::new("powershell")
+        .args(["-NoProfile", "-Command", &script])
+        .spawn()
+        .map_err(|e| format!("onarım başlatılamadı: {e}"))?;
+    tabs::dbg_log("run_repair: setup indirildi, /S başlatıldı — uygulama kapanıyor");
+    app.exit(0);
+    Ok(())
+}
+
+// ---------- Sessiz arka plan güncelleme ----------
+
+#[tauri::command]
+pub fn set_auto_update_background(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> Result<(), String> {
+    {
+        let db = state.db.lock().unwrap();
+        db::set_setting(
+            &db,
+            "auto_update_background",
+            if enabled { "1" } else { "0" },
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    tabs::emit_tabs_changed(&app);
+    Ok(())
+}
+
 // ---------- Veri temizleme (gizlilik) ----------
 
 #[tauri::command]

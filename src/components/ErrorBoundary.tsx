@@ -22,6 +22,9 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("QuantumBrowser hata:", error, info);
+    import("../api").then(({ dbgLogFrontend }) =>
+      dbgLogFrontend(`[boundary] ${error?.stack || String(error)}\n${info?.componentStack ?? ""}`).catch(() => {})
+    );
   }
 
   render() {

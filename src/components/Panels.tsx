@@ -6,6 +6,7 @@ import {
   Check,
   CheckCircle2,
   Download,
+  ExternalLink,
   FileClock,
   FolderOpen,
   Globe,
@@ -23,6 +24,7 @@ import {
   Sun,
   Trash2,
   Users,
+  Wrench,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -30,23 +32,34 @@ import { check } from "@tauri-apps/plugin-updater";
 import type { Panel } from "./Sidebar";
 import type { Snapshot } from "../types";
 
-const APP_VERSION = "0.0.3";
+const APP_VERSION = "0.0.4";
 
 function UpdateSection({
   autoUpdate,
+  autoUpdateBackground,
   onToggleAutoUpdate,
+  onToggleAutoUpdateBackground,
 }: {
   autoUpdate: boolean;
+  autoUpdateBackground: boolean;
   onToggleAutoUpdate: (enabled: boolean) => void;
+  onToggleAutoUpdateBackground: (enabled: boolean) => void;
 }) {
   const [checking, setChecking] = useState(false);
   const [update, setUpdate] = useState<Awaited<ReturnType<typeof check>> | null>(null);
   const [status, setStatus] = useState<"" | "current" | "error" | "installed">("");
+  const [progress, setProgress] = useState<number | null>(null);
+
+  const R = 34;
+  const C = 2 * Math.PI * R;
+  const pct = progress === null ? 0 : Math.min(1, Math.max(0, progress));
+  const dash = C * (1 - pct);
 
   const checkNow = useCallback(async () => {
     setChecking(true);
     setStatus("");
     setUpdate(null);
+    setProgress(null);
     try {
       const found = await check();
       if (found) {
@@ -63,11 +76,21 @@ function UpdateSection({
 
   const install = useCallback(async () => {
     if (!update) return;
+    setProgress(0);
     try {
-      await update.downloadAndInstall();
+      await update.downloadAndInstall((event) => {
+        if (event.event === "Started" && event.data.contentLength) {
+          setProgress(0);
+        } else if (event.event === "Progress") {
+          setProgress((p) => (p === null ? 0 : Math.min(1, p + event.data.chunkLength / 4_500_000)));
+        } else if (event.event === "Finished") {
+          setProgress(1);
+        }
+      });
       setStatus("installed");
     } catch {
       setStatus("error");
+      setProgress(null);
     }
   }, [update]);
 
@@ -90,8 +113,20 @@ function UpdateSection({
           <span className="track" />
         </label>
       </div>
+      <div className="card-row" style={{ marginTop: 12 }}>
+        <span style={{ fontWeight: 600 }}>Hazırsa arka planda indir</span>
+        <label className="switch" title="Yeni sürüm bulunursa sessizce indirilir; kurulum için butona basarsınız">
+          <input
+            type="checkbox"
+            checked={autoUpdateBackground}
+            onChange={(e) => onToggleAutoUpdateBackground(e.target.checked)}
+            aria-label="Hazırsa arka planda indir"
+          />
+          <span className="track" />
+        </label>
+      </div>
       <div className="card-row" style={{ marginTop: 14 }}>
-        <button className="btn" onClick={checkNow} disabled={checking}>
+        <button className="btn" onClick={checkNow} disabled={checking || progress !== null}>
           {checking ? "Kontrol ediliyor…" : "Güncellemeleri Denetle"}
         </button>
       </div>
@@ -104,7 +139,21 @@ function UpdateSection({
       {status === "installed" && (
         <p className="update-note ok"><CheckCircle2 size={13} /> Kurulum başladı — uygulama kapanacak ve güncellenecek.</p>
       )}
-      {update && (
+      {progress !== null && (
+        <div className="update-progress">
+          <svg viewBox="0 0 100 100" width="84" height="84" aria-label={`İndirme %${Math.round(pct * 100)}`}>
+            <circle cx="50" cy="50" r={R} className="update-ring-bg" fill="none" strokeWidth="9" />
+            <circle cx="50" cy="50" r={R} className="update-ring-fg" fill="none" strokeWidth="9" strokeLinecap="round"
+              strokeDasharray={C} strokeDashoffset={dash} transform="rotate(-90 50 50)" />
+            <text x="50" y="55" textAnchor="middle" fontSize="22" className="update-ring-text">%{Math.round(pct * 100)}</text>
+          </svg>
+          <div>
+            <div className="update-progress-title">Güncelleme indiriliyor…</div>
+            <div className="update-progress-sub">Kurulum otomatik başlayacak</div>
+          </div>
+        </div>
+      )}
+      {update && progress === null && (
         <div className="update-found">
           <div className="update-found-head">
             <span className="update-found-badge">YENİ</span>
@@ -116,6 +165,37 @@ function UpdateSection({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+const UPDATE_HISTORY: Array<{ version: string; lines: string[] }> = [
+  { version: "v0.0.4", lines: ["Otomatik güncelleme + arka plan indirme", "Komut Paleti (Ctrl+K)", "İndirme baloncuğu donması giderildi", "Ayarlar arama + kurulumu onar"] },
+  { version: "v0.0.3", lines: ["Otomatik güncelleme (uygulamanın kendisi)", "⋮ menüsü çocuk webview mimarisi", "İndirme baloncuğu çocuk webview'da"] },
+  { version: "v0.0.2", lines: ["⋮ menüsü çocuk webview (geçici)", "Sekme menüsü viewport koordinatında"] },
+  { version: "v0.0.1", lines: ["İlk Işık: sekmeler, dikey sidebar, gruplar", "Reklam engelleyici + Şifre Kasası + HTTPS mod"] },
+];
+
+function UpdateHistory() {
+  return (
+    <div className="card">
+      <h2><FileClock size={15} /> Güncelleme Geçmişi</h2>
+      <div className="update-history">
+        {UPDATE_HISTORY.map((h) => (
+          <details key={h.version} className="update-history-item">
+            <summary>
+              <span className="update-history-version">{h.version}</span>
+              <ExternalLink size={12} aria-hidden="true" />
+            </summary>
+            <ul className="update-history-list">
+              {h.lines.map((l, i) => <li key={i}>{l}</li>)}
+            </ul>
+          </details>
+        ))}
+      </div>
+      <p className="row-sub" style={{ marginTop: 10 }}>
+        Notların tam hâli: <a className="update-history-link" href="https://github.com/TurkYoshi1905/quantum-browser/releases" target="_blank" rel="noreferrer">GitHub Releases</a>
+      </p>
     </div>
   );
 }
@@ -494,6 +574,8 @@ export function SettingsPanel({
   onSetBlockInsecure,
   onOpenVault,
   onToggleAutoUpdate,
+  onToggleAutoUpdateBackground,
+  onRunRepair,
 }: {
   snapshot: Snapshot;
   onClose: () => void;
@@ -506,10 +588,38 @@ export function SettingsPanel({
   onSetBlockInsecure: (enabled: boolean) => void;
   onOpenVault: () => void;
   onToggleAutoUpdate: (enabled: boolean) => void;
+  onToggleAutoUpdateBackground: (enabled: boolean) => void;
+  onRunRepair: () => void;
 }) {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const CARD_TERMS: Record<string, string> = {
+    genel: "genel tema vurgu accent renk arama motoru",
+    gizlilik: "gizlilik engelleyici reklam engelleyici blocker http https kasık kasa geçmiş indirme liste",
+    guncelleme: "güncelle update indirme hazır denetle yükle",
+    gecmis: "güncelleme geçmişi history notlar",
+    onarim: "onar repair kurulum tamir düzelt",
+    hesaplar: "hesaplar google giriş",
+    hakkinda: "hakkında about agpl",
+  };
+  const cardMatch = (id: string) => !q || CARD_TERMS[id]?.includes(q);
+
   return (
     <PanelShell title="Ayarlar" icon={Settings2} onClose={onClose}>
-      <div className="card">
+      <div className="settings-search" role="search">
+        <Search size={14} strokeWidth={2} aria-hidden="true" />
+        <input
+          placeholder="Ayarlarda ara…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Ayarlarda ara"
+          spellCheck={false}
+        />
+      </div>
+      {q && !Object.values(CARD_TERMS).some((v) => v.includes(q)) && (
+        <div className="update-note err" role="status"><AlertTriangle size={13} /> "{query}" ile eşleşen ayar yok.</div>
+      )}
+      <div className="card" hidden={!cardMatch("genel")}>
         <h2><Sun size={15} /> Genel</h2>
         <p>QuantumBrowser'ın görünümü ve varsayılan arama motoru.</p>
         <div className="card-row">
@@ -572,7 +682,7 @@ export function SettingsPanel({
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" hidden={!cardMatch("gizlilik")}>
         <h2><ShieldCheck size={15} /> Gizlilik &amp; Engelleme</h2>
         <p>
           Yerleşik engelleme, bilinen reklam ve izleyici ağlarını (~110 alan adı) Chromium seviyesinde
@@ -634,7 +744,7 @@ export function SettingsPanel({
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" hidden={!cardMatch("hesaplar")}>
         <h2><ShieldCheck size={15} /> Hesaplar &amp; Giriş</h2>
         <p>
           Google gibi servislerin oturum açma akışı bu profilden çerezlerle kalıcı tutulur —
@@ -650,9 +760,32 @@ export function SettingsPanel({
         </p>
       </div>
 
-      <UpdateSection autoUpdate={snapshot.auto_update} onToggleAutoUpdate={onToggleAutoUpdate} />
+      <UpdateSection
+        autoUpdate={snapshot.auto_update}
+        autoUpdateBackground={snapshot.auto_update_background}
+        onToggleAutoUpdate={onToggleAutoUpdate}
+        onToggleAutoUpdateBackground={onToggleAutoUpdateBackground}
+      />
 
-      <div className="card about-card">
+      <div hidden={!cardMatch("gecmis")}><UpdateHistory /></div>
+
+      <div className="card" hidden={!cardMatch("onarim")}>
+        <h2><Wrench size={15} /> Kurulumu Onar</h2>
+        <p>
+          Bozuk kurulum, eksik WebView2 bileşenleri veya hata veren güncellemeden sonra —
+          setup'ı sessiz (/S) bayrağıyla indirip üzerine çalıştır. Yönetici izni gerekmez;
+          ayarlarınız ve şifre kasanız korunur.
+        </p>
+        <div className="card-row" style={{ marginTop: 12 }}>
+          <ArmedButton
+            label="Şimdi Onar"
+            confirmLabel="İndir ve Onar"
+            onConfirm={onRunRepair}
+          />
+        </div>
+      </div>
+
+      <div className="card about-card" hidden={!cardMatch("hakkinda")}>
         <div className="about-art" aria-hidden="true">
           <div className="about-orbit about-orbit-1" />
           <div className="about-orbit about-orbit-2" />

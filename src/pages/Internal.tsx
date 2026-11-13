@@ -22,7 +22,15 @@ function useInternalPage() {
   useEffect(() => {
     refresh();
     const un = api.onTabsChanged(refresh);
-    return () => { un.then((f) => f()); };
+    // İç sayfalar dahil Ctrl/⌘+K komut paleti
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        api.togglePalette();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => { un.then((f) => f()); window.removeEventListener("keydown", onKey); };
   }, [refresh]);
 
   // Hesap, tema, accent ve block_insecure anlık senkronu
@@ -60,6 +68,8 @@ export function SettingsPage() {
       onSetBlockInsecure={(v) => api.setBlockInsecure(v).then(refresh)}
       onOpenVault={() => api.newTab("quantum://vault")}
       onToggleAutoUpdate={(v) => api.setAutoUpdate(v).then(refresh)}
+      onToggleAutoUpdateBackground={(v) => api.setAutoUpdateBackground(v).then(refresh)}
+      onRunRepair={() => api.runRepair().catch(() => {})}
     />
   );
 }

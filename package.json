@@ -1,7 +1,7 @@
 {
   "name": "quantum-browser",
   "private": true,
-  "version": "0.0.3",
+  "version": "0.0.4",
   "type": "module",
   "description": "QuantumBrowser — WebView2 tabanlı, Arc tarzı, gizlilik saygılı Windows tarayıcı",
   "scripts": {
