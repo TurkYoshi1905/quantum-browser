@@ -212,17 +212,6 @@ export default function App() {
     api.setBlockerEnabled(!snap.blocker_enabled);
   }, []);
 
-  if (!snapshot) {
-    return (
-      <div className="shell" style={{ gridTemplateRows: "1fr" }}>
-        <div className="newtab" style={{ minHeight: "100vh" }}>
-          <img className="splash-img" src="/quantum-browser.png" alt="QuantumBrowser" width={96} height={96} />
-          <div className="greeting" style={{ marginTop: 10 }}>QuantumBrowser yükleniyor…</div>
-        </div>
-      </div>
-    );
-  }
-
   // Sessiz güncelleme kontrolü (ayarlıysa) — dişlide mor rozet + toast + arka planda indirme
   const [updateDot, setUpdateDot] = useState(false);
   useEffect(() => {
@@ -248,6 +237,18 @@ export default function App() {
       active = false;
     };
   }, [snapshot?.auto_update, snapshot?.auto_update_background]);
+
+  // TÜM hooklar koşulsuz çalıştıktan sonra yükleme ekranına geç (React error #310 önlemi).
+  if (!snapshot) {
+    return (
+      <div className="shell" style={{ gridTemplateRows: "1fr" }}>
+        <div className="newtab" style={{ minHeight: "100vh" }}>
+          <img className="splash-img" src="/quantum-browser.png" alt="QuantumBrowser" width={96} height={96} />
+          <div className="greeting" style={{ marginTop: 10 }}>QuantumBrowser yükleniyor…</div>
+        </div>
+      </div>
+    );
+  }
 
   const activeTitle = activeTab ? (activeTab.is_newtab ? "Yeni Sekme" : activeTab.title || activeTab.url) : "QuantumBrowser";
 
