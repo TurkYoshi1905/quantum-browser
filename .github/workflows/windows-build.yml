@@ -52,6 +52,9 @@ jobs:
         id: tauri_build
         continue-on-error: true
         shell: bash
+        env:
+          NO_COLOR: 1
+          TERM: dumb
         run: |
           set +e
           npx tauri build 2>&1 | tee build.log
@@ -136,11 +139,15 @@ jobs:
       - name: Derleme hatalarını annotations'a yaz
         if: steps.tauri_build.outcome == 'failure'
         shell: bash
+        env:
+          NO_COLOR: 1
         run: |
+          # Renk kodlarını temizle ki grep'ler gerçek hata satırlarıyla eşleşsin
+          if [ -f build.log ]; then sed 's/\x1b\[[0-9;]*m//g' build.log > build.clean.log; else echo "(build.log yok)" > build.clean.log; fi
           echo "== Hata satırları =="
-          grep -nE "^error" build.log | head -n 40
-          echo "== Cargo özet (son 80 satır) =="
-          tail -n 80 build.log | while IFS= read -r line; do
+          grep -nEi "error|failed|abort" build.clean.log | head -n 60 || true
+          echo "== Cargo özet (son 80 satır temizlendi) =="
+          tail -n 80 build.clean.log | while IFS= read -r line; do
             echo "::error::$line"
           done
           exit 1
