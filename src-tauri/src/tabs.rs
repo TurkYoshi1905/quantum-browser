@@ -215,7 +215,10 @@ pub fn hide_menu(app: &AppHandle) {
         dbg_log("menu hide");
     }
     let state = app.state::<AppState>();
-    state.tabs.lock().unwrap().menu_pending = None;
+    {
+        let store = state.tabs.lock().unwrap();
+        store.menu_pending = None;
+    }
 }
 
 /// Hafif tanılama kaydı — donma olursa `%LOCALAPPDATA%/com.quantum.browser/rust.log`undan bakılır.
@@ -677,7 +680,8 @@ pub fn close_tab(app: &AppHandle, label: &str) -> Result<(), String> {
     // profil değişimi sırasında bastırılır (tek sekme yaratılsın, çift olmasın)
     let suppress = {
         let state = app.state::<AppState>();
-        state.tabs.lock().unwrap().suppress_auto_newtab
+        let store = state.tabs.lock().unwrap();
+        store.suppress_auto_newtab
     };
     let needs_newtab = {
         let state = app.state::<AppState>();

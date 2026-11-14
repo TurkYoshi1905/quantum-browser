@@ -164,7 +164,9 @@ pub fn open_menu_popup(
     tabs::show_menu(&app, &menu, x, y)?;
     {
         let state = app.state::<AppState>();
-        state.tabs.lock().unwrap().menu_pending = Some((menu.clone(), tab_id.clone()));
+        let store = state.tabs.lock().unwrap();
+        store.menu_pending = Some((menu.clone(), tab_id.clone()));
+        drop(store);
     }
     let _ = app.emit(
         "menu-open",
@@ -509,7 +511,9 @@ pub fn switch_profile(app: AppHandle, profile_id: i64) -> Result<(), String> {
     // Profil değişimi sırasında close_tab'ın otomatik NewTab yaratmasını bastır
     {
         let state = app.state::<AppState>();
-        state.tabs.lock().unwrap().suppress_auto_newtab = true;
+        let store = state.tabs.lock().unwrap();
+        store.suppress_auto_newtab = true;
+        drop(store);
     }
     let labels: Vec<String> = {
         let state = app.state::<AppState>();
