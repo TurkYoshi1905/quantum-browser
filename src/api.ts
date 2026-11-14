@@ -118,6 +118,8 @@ export const vaultGeneratePassword = () => invoke<string>("vault_generate_passwo
 export const vaultExport = () => invoke<string>("vault_export");
 export const vaultImport = (contents: string) =>
   invoke<number>("vault_import", { contents });
+export const getPendingMenu = () =>
+  invoke<{ menu: string; tabId: string | null } | null>("get_pending_menu");
 export const openMenuPopup = (menu: string, x: number, y: number, tabId?: string | null) =>
   invoke<void>("open_menu_popup", { menu, x, y, tabId: tabId ?? null });
 export const closeMenuPopup = () => invoke<void>("close_menu_popup");

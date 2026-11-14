@@ -49,6 +49,10 @@ pub struct TabsStore {
     pub profile_store_id: Option<String>,
     pub incognito_store: Option<String>,
     pub last_closed: Vec<ClosedEntry>,
+    /// Profil değişimi sırasında otomatik NewTab yaratımını bastır.
+    pub suppress_auto_newtab: bool,
+    /// Açık menünün bekleyen durumu — menü tıklamasında kaybolma/yarış durumu olmasın (pull modeli).
+    pub menu_pending: Option<(String, Option<String>)>,
 }
 
 #[derive(Clone, Serialize)]
@@ -210,6 +214,8 @@ pub fn hide_menu(app: &AppHandle) {
         );
         dbg_log("menu hide");
     }
+    let state = app.state::<AppState>();
+    state.tabs.lock().unwrap().menu_pending = None;
 }
 
 /// Hafif tanılama kaydı — donma olursa `%LOCALAPPDATA%/com.quantum.browser/rust.log`undan bakılır.
@@ -667,13 +673,18 @@ pub fn close_tab(app: &AppHandle, label: &str) -> Result<(), String> {
         store.active = next;
     }
     drop(store);
-    // Hiç sekme kalmadıysa otomatik NewTab aç (Chrome davranışı)
+    // Hiç sekme kalmadıysa otomatik NewTab aç (Chrome davranışı) —
+    // profil değişimi sırasında bastırılır (tek sekme yaratılsın, çift olmasın)
+    let suppress = {
+        let state = app.state::<AppState>();
+        state.tabs.lock().unwrap().suppress_auto_newtab
+    };
     let needs_newtab = {
         let state = app.state::<AppState>();
         let store = state.tabs.lock().unwrap();
         store.tabs.is_empty()
     };
-    if needs_newtab {
+    if needs_newtab && !suppress {
         let _ = create_tab(app, None, false);
     }
     relayout(app)?;

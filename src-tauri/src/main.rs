@@ -207,6 +207,7 @@ fn main() {
             commands::toggle_palette,
             commands::run_repair,
             commands::open_menu_popup,
+            commands::get_pending_menu,
             commands::close_menu_popup,
             commands::vault_status,
             commands::vault_set_master_password,

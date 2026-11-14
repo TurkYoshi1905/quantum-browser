@@ -162,11 +162,28 @@ pub fn open_menu_popup(
 ) -> Result<(), String> {
     tabs::dbg_log(&format!("open_menu_popup: menu={menu} x={x} y={y}"));
     tabs::show_menu(&app, &menu, x, y)?;
+    {
+        let state = app.state::<AppState>();
+        state.tabs.lock().unwrap().menu_pending = Some((menu.clone(), tab_id.clone()));
+    }
     let _ = app.emit(
         "menu-open",
         serde_json::json!({ "menu": menu, "tabId": tab_id }),
     );
     Ok(())
+}
+
+/// Bekleyen menü durumunu getir — çocuk webview'um ilk yüklenme yarışını ortadan kaldır.
+#[tauri::command]
+pub fn get_pending_menu(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let store = state.tabs.lock().unwrap();
+    Ok(match &store.menu_pending {
+        Some((menu, tab_id)) => serde_json::json!({
+            "menu": menu,
+            "tabId": tab_id,
+        }),
+        None => serde_json::Value::Null,
+    })
 }
 
 /// Menüyü gizler (kapanma / Escape / dışarı tıklama / öğe seçimi).
@@ -488,11 +505,18 @@ pub fn delete_profile(state: State<'_, AppState>, profile_id: i64) -> Result<(),
 /// (Çoklu pencere desteği v0.2'ye ertelendi — kararlar.md'ye not düşüldü.)
 #[tauri::command]
 pub fn switch_profile(app: AppHandle, profile_id: i64) -> Result<(), String> {
+    tabs::dbg_log("switch_profile: start");
+    // Profil değişimi sırasında close_tab'ın otomatik NewTab yaratmasını bastır
+    {
+        let state = app.state::<AppState>();
+        state.tabs.lock().unwrap().suppress_auto_newtab = true;
+    }
     let labels: Vec<String> = {
         let state = app.state::<AppState>();
         let store = state.tabs.lock().unwrap();
         store.tabs.iter().map(|t| t.id.clone()).collect()
     };
+    tabs::dbg_log(&format!("switch_profile: closing {} tab(s)", labels.len()));
     for label in labels {
         let _ = tabs::close_tab(&app, &label);
     }
@@ -505,9 +529,11 @@ pub fn switch_profile(app: AppHandle, profile_id: i64) -> Result<(), String> {
         let mut store = state.tabs.lock().unwrap();
         store.profile_id = Some(profile.id);
         store.profile_store_id = Some(profile.store_id);
+        store.suppress_auto_newtab = false;
     }
-    // Boş arayüz kalmasın — yeni oturum için NewTab aç
+    // Boş arayüz kalmasın — yeni oturum için NewTab aç (tek açılır, çift olmaz)
     let _ = tabs::create_tab(&app, None, false);
+    tabs::dbg_log("switch_profile: done");
     Ok(())
 }
 

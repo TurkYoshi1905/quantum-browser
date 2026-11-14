@@ -34,6 +34,10 @@ export default function MenuPopup() {
     document.documentElement.style.background = "transparent";
     document.body.style.background = "transparent";
     const un = api.onMenuOpen((p) => setState(p));
+    // Yarışı ortadan kaldır: mount anında bekleyen menüyü çek
+    api.getPendingMenu().then((p) => {
+      if (p) setState(p);
+    }).catch(() => {});
     api.getSnapshot().then(setSnapshot).catch(() => {});
     return () => {
       un.then((f) => f());
