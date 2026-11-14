@@ -216,7 +216,7 @@ pub fn hide_menu(app: &AppHandle) {
     }
     let state = app.state::<AppState>();
     {
-        let store = state.tabs.lock().unwrap();
+        let mut store = state.tabs.lock().unwrap();
         store.menu_pending = None;
     }
 }
